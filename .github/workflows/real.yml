@@ -39,14 +39,6 @@ jobs:
             exit 1
           fi
 
-      # Recursive (unlike sim.yml): compile now auto-generates C
-      # memory-kind tests' golden.json via Spike at build time (see
-      # cli.cmd_compile/_generate_c_golden), so tools/Tools's own
-      # vendor/riscv-isa-sim submodule is needed here. (Its sibling
-      # vendor/riscv-gnu-toolchain isn't — the RISC-V toolchain comes
-      # prebuilt via curl below instead — but there's no way to
-      # recurse into just one of a submodule's own submodules, so it
-      # gets cloned too and simply sits unused.)
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -110,72 +102,30 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Install RISC-V toolchain (riscv-collab, cached until a newer nightly exists)
-        # Same "always latest, no pinned tag" reasoning as sim.yml, but
-        # this runner is a persistent machine (sim.yml's isn't), so the
-        # ~200MB tarball only needs re-fetching when the nightly tag
-        # actually changed — the ~1KB API check runs every time either way.
-        # <<< ADJUST the ubuntu-22.04 asset below if this runner's OS
-        # ever changes — riscv-collab's prebuilt gcc needs a glibc at
-        # least as new as the Ubuntu version it was built against
-        # (confirmed via `lsb_release -a` / `ldd --version` on this
-        # workstation: Ubuntu 22.04, glibc 2.35 — the 24.04 build
-        # failed with "GLIBC_2.38 not found").
-        #
-        # /opt/riscv-foundation is a shared, workstation-wide cache for
-        # every RISC-V toolchain this project needs (not just this
-        # one) — owned by runner:runner, setgid so picow (in the
-        # runner group) can also refresh it interactively for local
-        # dev, instead of each keeping a separate multi-GB copy.
+      - name: Check the RISC-V toolchain (installed by insper-riscv/Infra)
+        # The GCC (with picolibc) and the patched Spike live in the
+        # workstation's shared cache, /opt/riscv-foundation, with wrappers
+        # in /usr/local/bin: Infra's GCC_SETUP.md and SPIKE_SETUP.md
+        # install them, and this workflow builds and downloads nothing.
+        # config.yaml links tests against picolibc, so fail here, with a
+        # pointer, if this runner lacks it.
         run: |
-          CACHE_DIR=/opt/riscv-foundation/riscv32-elf
-          RELEASE_JSON=$(curl -fsSL https://api.github.com/repos/riscv-collab/riscv-gnu-toolchain/releases/latest)
-          LATEST_TAG=$(echo "$RELEASE_JSON" | grep -m1 '"tag_name"' | cut -d'"' -f4)
-          if [ -z "$LATEST_TAG" ]; then
-            echo "::error::could not resolve the latest riscv-collab release tag"
+          # Captured in variables: `cmd | head -1` under pipefail (the
+          # default for `bash` here) fails with SIGPIPE when the command
+          # has more output than the first line, as spike --help does.
+          gcc_version=$(riscv32-unknown-elf-gcc --version)
+          echo "${gcc_version%%$'\n'*}"
+          if ! riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; then
+            echo "::error::riscv32-unknown-elf-gcc has no picolibc; install the toolchain as in insper-riscv/Infra's GCC_SETUP.md"
             exit 1
           fi
-
-          if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$LATEST_TAG" ]; then
-            echo "Cached toolchain is already $LATEST_TAG, skipping download"
-          else
-            echo "Installing $LATEST_TAG (cached was: $(cat "$CACHE_DIR/.tag" 2>/dev/null || echo none))"
-            rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
-            curl -fsSL -o /tmp/riscv-gcc.tar.xz \
-              "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/$LATEST_TAG/riscv32-elf-ubuntu-22.04-gcc.tar.xz"
-            tar -xf /tmp/riscv-gcc.tar.xz -C "$CACHE_DIR" --strip-components=1
-            rm /tmp/riscv-gcc.tar.xz
-            echo "$LATEST_TAG" > "$CACHE_DIR/.tag"
-          fi
-          echo "$CACHE_DIR/bin" >> "$GITHUB_PATH"
+          spike_help=$(spike --help 2>&1 || true)
+          echo "${spike_help%%$'\n'*}"
 
       - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools)
         run: uv sync
-
-      - name: Build/update Spike (reference simulator, cached workstation-wide)
-        # Same /opt/riscv-foundation cache pattern as the gcc toolchain
-        # above — actions/checkout's default `clean: true` wipes
-        # untracked build artifacts (the built `spike` binary) from
-        # tools/Tools/vendor/riscv-isa-sim's own tree on every run, so
-        # RISCV_ISA_SIM_DIR points golden_generator.setup()/update() at
-        # a location outside this checkout instead, persisted via
-        # $GITHUB_ENV so the later `compile` step (which resolves Spike
-        # itself, for C memory tests' auto-generated golden.json — see
-        # cli.cmd_compile/_generate_c_golden) sees the same override.
-        # setup() builds only if nothing's there yet; update() rebuilds
-        # only if the submodule's pinned commit moved since the last
-        # build (see golden_generator/setup.py) — both cheap/no-op
-        # otherwise, safe to call unconditionally every run.
-        run: |
-          echo "RISCV_ISA_SIM_DIR=/opt/riscv-foundation/riscv-isa-sim" >> "$GITHUB_ENV"
-          export RISCV_ISA_SIM_DIR=/opt/riscv-foundation/riscv-isa-sim
-          uv run python -c "
-          from riscv_tools import golden_generator
-          golden_generator.setup()
-          golden_generator.update()
-          "
 
       - name: Generate rv32_test.h
         run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header

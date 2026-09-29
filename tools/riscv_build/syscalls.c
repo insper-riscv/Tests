@@ -1,20 +1,9 @@
-/* Self-contained malloc()/free() — deliberately NOT newlib's.
+/* Self-contained malloc()/free(), used instead of picolibc's.
  *
- * compile_test still passes -nostdlib (see Tools' compiler/build.py),
- * so this project never links against the toolchain's own bundled
- * libc.a at all. Tried the opposite first (drop -nostdlib, provide
- * just a _sbrk() stub for newlib's own malloc to call) — broke in CI
- * with "can't link double-float modules with soft-float modules":
- * the riscv-collab prebuilt release CI downloads turned out to ship a
- * SINGLE-target libc.a built for rv32imafdc/hard-float (confirmed by
- * downloading that exact release and checking its own
- * Tag_RISCV_arch), incompatible with -mabi=ilp32 (soft-float — the
- * only ABI that makes sense for a core with no FPU at all). That
- * wasn't fixable with compile flags: the toolchain a given CI run
- * happens to download isn't guaranteed to have been built for this
- * project's own -march/-mabi, and "always latest" makes pinning
- * around it fragile. A malloc that never touches libc.a sidesteps the
- * whole class of problem.
+ * Tests link against the toolchain's picolibc (toolchain.libc in
+ * config.yaml), but this object is on the link command line, so the
+ * malloc() and free() below win over picolibc's own, which would need a
+ * _sbrk() and a heap this project's link scripts don't provide.
  *
  * A plain bump allocator is enough for this project's tests: none of
  * them build/tear down repeatedly or care about reclaiming memory
