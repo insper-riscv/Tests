@@ -5,7 +5,8 @@
 
 // printf's integer conversions (%d, %x), written to stdout's buffer in RAM
 // (see platform/stdio.c). They divide by the base with a div right before a
-// rem, which the core gets wrong (see asm/div-rem-back-to-back/.off).
+// rem: two multiply/divide instructions in a row, which the core got wrong
+// until insper-riscv/RV32IM#33 (see asm/div-rem-back-to-back).
 #define STDOUT_BASE 0x0002FBE0u
 
 struct stdout_buffer {

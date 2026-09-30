@@ -16,7 +16,7 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `asm/`, `c/` | Os 87 testes ativos da suíte (51 em assembly, 36 em C), um `<name>/src.S` ou `<name>/src.c` por pasta; 2 testes estão desligados por um bug de hardware (`.off`, ver [docs/RUNTIME.md](docs/RUNTIME.md#7-limites-conhecidos)) |
+| `asm/`, `c/` | Os 89 testes da suíte (52 em assembly, 37 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
 | `rv32im-fpga.specs` | A descrição da plataforma (mapa de memória e `crt0`) para o GCC; o linker script e o `crt0` são os da toolchain, ver [docs/RUNTIME.md](docs/RUNTIME.md) |
 | `platform/` | A parte do runtime que é deste hardware: a BOOT_ROM (`boot_rom.S`, `boot_rom.ld`), `_exit.c`, `stdio.c` e `spike_exit.S` |
 | `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`) |
