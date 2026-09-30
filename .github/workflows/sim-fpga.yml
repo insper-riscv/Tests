@@ -45,12 +45,13 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout RV32IM (VHDL sources and the Quartus project)
+      - name: Checkout Core and RV32IM (VHDL sources and the Quartus project)
         # config.yaml's paths are relative to a checkout nested at
-        # RV32IM/Tests/: ../src is the VHDL, ../tests is the Quartus
-        # project (see sim.yml and real.yml).
+        # RV32IM/Tests/: ../Core is the core, ../src the memories and
+        # tops, ../tests the Quartus project (see sim.yml and real.yml).
         run: |
-          rm -rf ../RV32IM ../src ../tests
+          rm -rf ../Core ../RV32IM ../src ../tests
+          git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
           ln -s RV32IM/tests ../tests
