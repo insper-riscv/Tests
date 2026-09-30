@@ -27,7 +27,7 @@ jobs:
     # are there for the mise installer and the checkout).
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/insper-riscv/infra-toolchain:sha-a3481e0
+      image: ghcr.io/insper-riscv/infra-toolchain:latest
 
     steps:
       - uses: actions/checkout@v7
