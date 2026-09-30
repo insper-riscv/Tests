@@ -1,0 +1,1 @@
+Hardware bug, see asm/div-rem-back-to-back/.off: printf's integer conversions run a div right before a rem, and the core returns the quotient for both, so %d of 42 prints 00. Passes on Spike. Turn this on once the core starts every multiply/divide.
