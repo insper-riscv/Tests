@@ -1,0 +1,16 @@
+#!/bin/sh
+# Spike as ACT4's reference model for the rv32im-min target.
+#
+# ACT4 runs its reference model as `<ref_model_exe> --isa=... +signature=...
+# <elf>`, with no memory options, so Spike has its default map: memory at
+# 0x80000000 only. This target's tests are linked at 0 (link.ld: ROM at
+# 0x0, RAM at 0x400000, the HTIF words at the top of RAM), and Spike stops
+# with "Memory address 0x0 is invalid". This wrapper gives Spike the same
+# map as link.ld, one region covering ROM and RAM (0x0 to 0x600000), and
+# starts it at address 0 without its boot ROM and device tree (which would
+# overlap that region), as `riscv-tools spike-run` does.
+#
+# ACT4 picks the reference model type from the executable's name, which
+# must contain "spike", and finds it on PATH: put this directory on PATH
+# (the certification workflow does), or run ACT4 from a shell that has it.
+exec spike -m0x0:0x600000 --pc=0x0 --disable-dtb "$@"

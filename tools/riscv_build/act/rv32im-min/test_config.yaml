@@ -4,7 +4,8 @@ name: rv32im-min
 # GHDL sim has nothing to disassemble against; ACT4 skips it cleanly
 # when unset (see README: "if not provided, objdump will be skipped").
 compiler_exe: riscv32-unknown-elf-gcc
-ref_model_exe: spike
+# Spike with this target's memory map (see the script), found on PATH.
+ref_model_exe: spike-rv32im-min
 udb_config: rv32im-min.yaml
 linker_script: link.ld
 dut_include_dir: .

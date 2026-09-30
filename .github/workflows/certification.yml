@@ -44,6 +44,12 @@ jobs:
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
 
+      - name: Put ACT4's reference-model wrapper on PATH
+        # test_config.yaml's ref_model_exe is spike-rv32im-min: Spike with
+        # this target's memory map, which ACT4 cannot pass itself (see
+        # the script), found by name on PATH.
+        run: echo "$GITHUB_WORKSPACE/tools/riscv_build/act/rv32im-min" >> "$GITHUB_PATH"
+
       - name: Install the host packages ACT4 uses
         # The toolchain image has only the RISC-V cross compiler: bundler
         # builds gems such as nkf with the host's cc and make
