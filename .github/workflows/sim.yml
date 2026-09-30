@@ -26,17 +26,19 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout Core and RV32IM (the VHDL sources)
-        # config.yaml's sim.vhdl_sources are "../Core/..." (the core) and
-        # "../src/..." (the memories and the simulation top), relative to
+      - name: Checkout Core, Memory and RV32IM (the VHDL sources)
+        # config.yaml's sim.vhdl_sources are "../Core/..." (the core),
+        # "../Memory/..." (the memories) and "../src/..." (the simulation
+        # top), relative to
         # this checkout: true by accident on a workstation where this repo
         # is nested at RV32IM/Tests/ (see HARDWARE_PROGRAMMING.md), but a
         # bare CI checkout of just this repo has no parent, so ghdl fails
         # with "not found". Clone Core next to it, and RV32IM with its src/
         # linked into the sibling path config.yaml expects.
         run: |
-          rm -rf ../Core ../RV32IM ../src
+          rm -rf ../Core ../Memory ../RV32IM ../src
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
+          git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
 
