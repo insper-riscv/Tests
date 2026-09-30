@@ -46,6 +46,12 @@ jobs:
       - name: Generate rv32_test.h
         run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 
+      - name: Check the memory map against every copy
+        # platforms/internal-mem.yaml is the source of truth; the boot ROM,
+        # the runtime, the linker flags, config.yaml, the core's VHDL and the
+        # Quartus IPs must all agree with it.
+        run: uv run riscv-tools --root . check-memory-map --platform platforms/internal-mem.yaml
+
       - name: Build sim test ROM images
         # compile also generates each C memory test's golden under Spike.
         run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
