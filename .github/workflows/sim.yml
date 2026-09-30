@@ -11,52 +11,24 @@ concurrency:
 
 jobs:
   test-sim:
-    # Runs on any push/PR/branch, no hardware needed: cheap, fast, no
-    # license required (GHDL is open source).
-    runs-on: ubuntu-latest
+    # Needs no hardware and no Quartus license (GHDL is open source), so
+    # it runs on a GitHub-hosted runner, independent of any workstation.
+    # The image is insper-riscv/Infra's toolchain image (docs/en/
+    # TOOLCHAIN_IMAGE.md there): GHDL, the RISC-V GCC with picolibc, Spike
+    # and uv already on PATH, so nothing is built or installed here. It is
+    # the latest publication; to pin one, use its sha- tag.
+    runs-on: ubuntu-26.04
     container:
-      image: ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+      image: ghcr.io/insper-riscv/infra-toolchain:latest
 
     steps:
-      # ghdl/ghdl's image has no git, so actions/checkout falls back to
-      # downloading via the GitHub REST API — which doesn't support
-      # `submodules: recursive` ("Input 'submodules' not supported
-      # when falling back to download using the GitHub REST API").
-      # Installing git first lets checkout use a real clone instead.
-      # curl and xz-utils are also missing (needed below to fetch and
-      # extract the RISC-V toolchain's .tar.xz), and so is libmpc3
-      # (pulls in libmpfr/libgmp as deps) — the prebuilt gcc's cc1 is
-      # dynamically linked against it and fails with "cannot open
-      # shared object file: libmpc.so.3" otherwise. build-essential +
-      # device-tree-compiler + the boost libs are Spike's own build
-      # deps (see "Build/update Spike" below) — compile auto-generates
-      # C memory tests' golden.json via Spike (cli.cmd_compile/
-      # _generate_c_golden), so this workflow needs a working `spike`
-      # same as real.yml/certification.yml do.
-      - name: Install git, curl, xz-utils, libmpc3 and Spike's build deps (missing from the ghdl/ghdl image)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git ca-certificates curl xz-utils libmpc3 build-essential \
-            device-tree-compiler libboost-regex-dev libboost-system-dev
-
-      # Non-recursive: tools/Tools and vendor/riscv-arch-test are all
-      # this pipeline touches directly. Going recursive would also
-      # clone tools/Tools's own vendor/riscv-gnu-toolchain AND
-      # vendor/riscv-isa-sim submodules — a multi-GB tree (full gcc,
-      # glibc, llvm, qemu-with-every-firmware-ROM checkouts) just to
-      # get Spike's much smaller source out of it. The GCC toolchain
-      # used here comes prebuilt via curl below instead, and Spike is
-      # cloned+built on its own outside the submodule tree (see
-      # "Build/update Spike" below) via RISCV_ISA_SIM_DIR, same
-      # mechanism golden_generator/setup.py documents for CI.
       - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Checkout RV32IM (holds the VHDL sources)
         # config.yaml's sim.vhdl_sources are all "../src/...", relative
-        # to this checkout — true by accident on a workstation where
+        # to this checkout: true by accident on a workstation where
         # this repo is nested at RV32IM/Tests/ (see
         # HARDWARE_PROGRAMMING.md), but a bare CI checkout of just this
         # repo has no RV32IM parent, so ghdl fails with e.g.
@@ -64,126 +36,18 @@ jobs:
         # RV32IM and symlink its src/ into the exact sibling path
         # config.yaml expects, same idea as real.yml's RV32IM checkout.
         run: |
-          rm -rf ../RV32IM
+          rm -rf ../RV32IM ../src
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
 
-      - name: Resolve latest riscv-gnu-toolchain release tag (for the cache key below)
-        # "always latest nightly" (see step below) means the download
-        # URL alone can't be a cache key — it 302s to whatever's
-        # current. Following that redirect without hitting
-        # api.github.com keeps this off GitHub API rate limits, which
-        # hosted runners share an IP pool against.
-        id: toolchain-tag
-        run: |
-          tag=$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-            https://github.com/riscv-collab/riscv-gnu-toolchain/releases/latest)
-          echo "tag=${tag##*/}" >> "$GITHUB_OUTPUT"
-
-      # restore+save (not the combined actions/cache) so the save
-      # happens right after the download, not deferred to an implicit
-      # post-step at the very end of the job — the post-step is
-      # skipped entirely if ANY later step fails or the job gets
-      # cancelled (confirmed via an actual run: "Post Cache built
-      # Spike" showed "skipped" after a later, unrelated step failed),
-      # throwing away a perfectly good download/build for no reason.
-      - name: Restore RISC-V GCC toolchain from cache
-        id: cache-toolchain
-        uses: actions/cache/restore@v6
-        with:
-          path: /opt/riscv
-          key: riscv-gcc-ubuntu24.04-${{ steps.toolchain-tag.outputs.tag }}
-
-      - name: Install RISC-V toolchain (riscv-collab, always latest nightly)
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        run: |
-          curl -fsSL -o /tmp/riscv-gcc.tar.xz \
-            "https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/${{ steps.toolchain-tag.outputs.tag }}/riscv32-elf-ubuntu-24.04-gcc.tar.xz"
-          mkdir -p /opt/riscv
-          tar -xf /tmp/riscv-gcc.tar.xz -C /opt/riscv --strip-components=1
-
-      # Only on an actual miss: actions/cache/save errors on an
-      # existing key (cache entries are immutable), and a hit means
-      # there's nothing new to save anyway.
-      - name: Save RISC-V GCC toolchain to cache
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: /opt/riscv
-          key: riscv-gcc-ubuntu24.04-${{ steps.toolchain-tag.outputs.tag }}
-
-      - name: Add RISC-V toolchain to PATH
-        run: echo "/opt/riscv/bin" >> "$GITHUB_PATH"
-
-      - uses: astral-sh/setup-uv@v10.0.1
-
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync
-
-      - name: Resolve pinned riscv-isa-sim commit (for the Spike cache key below)
-        # tools/Tools is checked out (its own vendor/riscv-isa-sim
-        # submodule isn't — see the non-recursive checkout above), so
-        # its gitlink pin for vendor/riscv-isa-sim is readable via
-        # `submodule status` without that submodule being initialized
-        # (shows as "-<sha> path" when uninitialized).
-        id: spike-pin
-        run: |
-          commit=$(git -C tools/Tools submodule status vendor/riscv-isa-sim | sed -E 's/^[+ -]//' | awk '{print $1}')
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
-
-      - name: Restore built Spike from cache
-        id: cache-spike
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/riscv-isa-sim
-          key: spike-${{ steps.spike-pin.outputs.commit }}
-
-      - name: Build/update Spike (reference simulator; compile needs it for C memory tests' golden.json)
-        # Same golden_generator.setup()/update() real.yml uses, but
-        # pointed at this ephemeral runner's cache dir instead of a
-        # self-hosted runner's persistent /opt — RISCV_ISA_SIM_DIR
-        # clones+builds riscv-isa-sim there directly (bypassing the
-        # never-checked-out submodule entirely), and the cache step
-        # above makes that a no-op except when the pinned commit
-        # changes. Persisted via $GITHUB_ENV so the later `compile`
-        # step (which resolves Spike itself) sees the same override.
-        #
-        # $RUNNER_TEMP (the env var), NOT ${{ runner.temp }} (the
-        # expression): this run: step executes INSIDE the job's
-        # container (ghdl/ghdl), where the expression form resolves to
-        # the HOST's own path (/home/runner/work/_temp — confirmed via
-        # an actual run's logs), which doesn't exist inside the
-        # container at all. $RUNNER_TEMP is what the runner actually
-        # sets in the container's own process environment
-        # (/__w/_temp) — same value astral-sh/setup-uv's own
-        # UV_CACHE_DIR already showed above. Using the expression form
-        # here made every later step (including this same job's own
-        # `compile`) miss the "already checked out" check and re-clone
-        # from scratch, since it was checking a path nothing had
-        # actually written to.
-        run: |
-          echo "RISCV_ISA_SIM_DIR=$RUNNER_TEMP/riscv-isa-sim" >> "$GITHUB_ENV"
-          export RISCV_ISA_SIM_DIR=$RUNNER_TEMP/riscv-isa-sim
-          uv run python -c "
-          from riscv_tools import golden_generator
-          golden_generator.setup()
-          golden_generator.update()
-          "
-
-      # Right after the build, not deferred to job-end — see the
-      # restore step's own comment above for why. Only on an actual
-      # miss (see the toolchain save step's own comment for why).
-      - name: Save built Spike to cache
-        if: steps.cache-spike.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/riscv-isa-sim
-          key: spike-${{ steps.spike-pin.outputs.commit }}
 
       - name: Generate rv32_test.h
         run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 
       - name: Build sim test ROM images
+        # compile also generates each C memory test's golden under Spike.
         run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
 
       - name: Run sim tests

@@ -1,0 +1,80 @@
+name: sim tests (hardware top)
+
+# Runs the suite on the REAL hardware top (core_fpga_test) with the real
+# Quartus memory IP on Intel's simulation models, see
+# docs/SIMULACAO_TOPO_FPGA.md. No FPGA is touched, but the IP's simulation
+# library (altera_mf) ships with Quartus, so it runs on the self-hosted
+# runner that has Quartus, in the toolchain image, with Quartus mounted
+# read-only. Manual only until it has run once on that runner.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret FPGA_RUN_SECRET's value, to confirm you're allowed to run this on the self-hosted runner"
+        required: true
+
+concurrency:
+  group: sim-fpga-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-sim-fpga:
+    runs-on: [self-hosted, quartus]
+    container:
+      image: ghcr.io/insper-riscv/infra-toolchain:latest
+      # /opt/altera_lite is the runner's bind mount of the Quartus
+      # install (see real.yml's "Add Quartus to PATH").
+      volumes:
+        - /opt/altera_lite:/opt/altera_lite:ro
+    env:
+      # altera_mf_components.vhd and altera_mf.vhd are under eda/sim_lib.
+      QUARTUS_ROOTDIR: /opt/altera_lite/25.1std/quartus
+
+    steps:
+      - name: Authorize manual run
+        # Same second check as real.yml: write access controls who can
+        # trigger this, and the secret makes sure only someone who knows
+        # it runs code on the self-hosted runner.
+        run: |
+          if [ "${{ inputs.confirm }}" != "${{ secrets.FPGA_RUN_SECRET }}" ]; then
+            echo "::error::confirmation does not match FPGA_RUN_SECRET, refusing to run on the self-hosted runner"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Checkout RV32IM (VHDL sources and the Quartus project)
+        # config.yaml's paths are relative to a checkout nested at
+        # RV32IM/Tests/: ../src is the VHDL, ../tests is the Quartus
+        # project (see sim.yml and real.yml).
+        run: |
+          rm -rf ../RV32IM ../src ../tests
+          git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
+          ln -s RV32IM/src ../src
+          ln -s RV32IM/tests ../tests
+
+      - name: Check the Quartus simulation library
+        run: ls "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf.vhd "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf_components.vhd
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Generate rv32_test.h
+        run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
+
+      - name: Build the images the hardware loads
+        # compile also generates each C memory test's golden under Spike.
+        run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
+
+      - name: Run the suite on the hardware top
+        run: uv run riscv-tools --config tools/riscv_build/config.fpga-sim.yaml sim
+
+      - name: Upload waveforms
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: waveforms-fpga-sim
+          path: "**/*.ghw"
+          if-no-files-found: ignore

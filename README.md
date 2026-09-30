@@ -21,7 +21,7 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 | `tools/Tools/` | Submódulo do pacote [`riscv-tools`](tools/Tools/README.md) |
 | `vendor/riscv-arch-test/` | Submódulo do [ACT4](https://github.com/riscv-non-isa/riscv-arch-test) (RISC-V Architectural Certification Tests, RISC-V Foundation) |
 | `tests/python/` | Testes de simulação por entidade VHDL (cocotb + GHDL), separados da suíte `asm`/`c` acima; ver [tests/python/README.md](tests/python/README.md) |
-| `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação), `certification.yml` (ACT4) |
+| `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação), `sim-fpga.yml` (simulação do topo de hardware), `certification.yml` (ACT4) |
 | `docs/` | Arquitetura de memória, bugs investigados, referência de boot, guia de programação da placa |
 
 ## Uso rápido
@@ -47,6 +47,7 @@ de hardware, como escrever um teste novo).
 - [docs/MEMORY_ARCHITECTURE.md](docs/MEMORY_ARCHITECTURE.md): arquitetura BOOT_ROM + FLASH + RAM
 - [docs/CRT0_BOOT_REFERENCE.md](docs/CRT0_BOOT_REFERENCE.md): estado de boot, `crt0.S` + `boot_rom.S`
 - [docs/PROGRAM_UPDATE_HANDOFF.md](docs/PROGRAM_UPDATE_HANDOFF.md): rewrite de FLASH por JTAG e handoff de boot entre testes
+- [docs/SIMULACAO_TOPO_FPGA.md](docs/SIMULACAO_TOPO_FPGA.md): simulação do topo de hardware com as memórias reais do Quartus
 - [docs/MALLOC_SUPPORT.md](docs/MALLOC_SUPPORT.md): suporte a `malloc`/`free`
 - [docs/bugs/PLL_LOCK_LOSS_BUG.md](docs/bugs/PLL_LOCK_LOSS_BUG.md), [docs/bugs/SMALL_DATA_SECTION_BUG.md](docs/bugs/SMALL_DATA_SECTION_BUG.md), [docs/bugs/DATA_HARVARD_BUG.md](docs/bugs/DATA_HARVARD_BUG.md): bugs de hardware já investigados e corrigidos
 - [docs/bugs/PER_ENTITY_TESTS_CI_BREAKAGE.md](docs/bugs/PER_ENTITY_TESTS_CI_BREAKAGE.md): bugs no CI dos testes por entidade
