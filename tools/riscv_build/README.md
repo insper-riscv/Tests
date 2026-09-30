@@ -12,8 +12,8 @@ Compiles bare-metal test programs (C under `c/`, assembly under
 Both are driven by [`riscv-tools`](https://github.com/insper-riscv/Tools),
 vendored here as the `tools/Tools` git submodule, not a copy. This
 folder only holds what's genuinely project-specific: `config.yaml`
-(memory map, Quartus project, toolchain), `crt0.S`/`link.ld` (this
-project's own startup code/linker script), and `sim/test_c_program.py`
+(memory map, Quartus project, toolchain), `config.fpga-sim.yaml` (the
+simulation profile of the hardware top), and `sim/test_c_program.py`
 (the cocotb testbench that knows the DUT's actual VHDL signal
 hierarchy; `riscv-tools` can't know that, only this project can).
 Everything else (compiling, JTAG programming/readback, RAM-vs-golden
@@ -192,7 +192,7 @@ manual-dispatch secret, and the JTAG USB-autosuspend gotcha), see
 (repo `insper-riscv/Infra`: org-wide infra docs, not specific to this
 project). What's specific to *this* project:
 
-**Hardware/board facts, already reflected in `config.yaml`/`link.ld`
+**Hardware/board facts, already reflected in `config.yaml`/`rv32im-fpga.specs`
 (and in the generated `rv32_test.h`, see "Writing a test" above):**
 - JTAG: `jtagconfig` reports hardware `USB-Blaster [1-4]`, device
   `@1: 5CE(BA4|FA4) (0x02B050DD)`.
