@@ -35,7 +35,7 @@ rodando `python3 tests/python/runner.py ROM` isoladamente: `TESTS=1 PASS=1`.
 ## Bug 2 (não corrigido de verdade; testes marcados como `skip`): regressão real do redesign BOOT_ROM+FLASH
 
 ```
-/.../src/ROM_simulation.vhd:79:12:error: cannot open file: default.hex
+/.../Memory/sim/ROM_simulation.vhd:79:12:error: cannot open file: default.hex
 in process ...boot_rom@rom_simulation(rtl).init
 ```
 

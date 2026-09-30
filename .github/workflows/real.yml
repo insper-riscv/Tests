@@ -57,8 +57,9 @@ jobs:
           rm -rf ../RV32IM
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           # The Quartus project names the core's files as ../../../../Core/...
-          # (the RV32IM checkout's own Core submodule).
-          git -C ../RV32IM submodule update --init Core
+          # and the IPs as ../../../../Memory/ips/... (the RV32IM checkout's
+          # own submodules).
+          git -C ../RV32IM submodule update --init Core Memory
           # This self-hosted runner's _work isn't wiped between runs
           # (unlike a hosted runner), so a stale ../tests left over
           # from before this symlink existed (a real directory, not a
