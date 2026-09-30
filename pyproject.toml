@@ -3,9 +3,9 @@ name = "riscv-workstation-tests"
 version = "0.1.0"
 description = "Real-hardware + simulation test suite for RV32IM, driven by riscv-tools (tools/Tools submodule)."
 license = "Apache-2.0"
-# Same ceiling as riscv-tools itself (tools/Tools/pyproject.toml):
-# cocotb caps at 3.13, and this project shares one venv with it.
-requires-python = ">=3.13,<3.14"
+# Same range as riscv-tools itself (tools/Tools/pyproject.toml): this
+# project shares one venv with it.
+requires-python = ">=3.14,<3.15"
 dependencies = [
     # [sim] pulls cocotb/cocotb-tools at the exact versions riscv-tools
     # itself is pinned to; also what tests/python/runner.py's own
