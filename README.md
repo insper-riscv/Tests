@@ -21,9 +21,8 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 | `platform/` | A parte do runtime que é deste hardware: a BOOT_ROM (`boot_rom.S`, `boot_rom.ld`), `_exit.c`, `stdio.c` e `spike_exit.S` |
 | `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`) |
 | `tools/Tools/` | Submódulo do pacote [`riscv-tools`](tools/Tools/README.md) |
-| `vendor/riscv-arch-test/` | Submódulo do [ACT4](https://github.com/riscv-non-isa/riscv-arch-test) (RISC-V Architectural Certification Tests, RISC-V Foundation) |
 | `tests/python/` | Testes de simulação por entidade VHDL (cocotb + GHDL), separados da suíte `asm`/`c` acima; ver [tests/python/README.md](tests/python/README.md) |
-| `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação), `sim-fpga.yml` (simulação do topo de hardware), `certification.yml` (ACT4) |
+| `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação), `sim-fpga.yml` (simulação do topo de hardware) |
 | `docs/` | Arquitetura de memória, bugs investigados, referência de boot, guia de programação da placa |
 
 ## Uso rápido
@@ -34,7 +33,6 @@ uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   #
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulação
 uv run riscv-tools --config tools/riscv_build/config.yaml run                  # suíte de hardware real
 uv run riscv-tools --config tools/riscv_build/config.yaml sim                  # suíte de simulação
-uv run riscv-tools --config tools/riscv_build/config.yaml certify              # ACT4
 ```
 
 Ver [tools/Tools/README.md](tools/Tools/README.md) pra referência

@@ -170,9 +170,9 @@ Each suite has its own workflow file:
   workflow**. Needs a self-hosted runner with Quartus and a board
   attached.
 
-Both check out submodules recursively (`tools/Tools`, plus
-`vendor/riscv-arch-test`) and set up `uv` the same way local dev does
-above.
+Both check out submodules recursively (`tools/Tools`) and set up `uv` the same
+way local dev does above. The ACT4 certification lives in
+[`insper-riscv/Certification`](https://github.com/insper-riscv/Certification).
 
 ## Configuring the real suite on this workstation
 
