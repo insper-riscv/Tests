@@ -18,6 +18,7 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 | :--- | :--- |
 | `asm/`, `c/` | Os 89 testes da suíte (52 em assembly, 37 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
 | `rv32im-fpga.specs` | A descrição da plataforma (mapa de memória e `crt0`) para o GCC; o linker script e o `crt0` são os da toolchain, ver [docs/RUNTIME.md](docs/RUNTIME.md) |
+| `platforms/` | O mapa de memória da plataforma (`internal-mem.yaml`), a fonte da verdade que `check-memory-map` confere contra todas as cópias |
 | `platform/` | A parte do runtime que é deste hardware: a BOOT_ROM (`boot_rom.S`, `boot_rom.ld`), `_exit.c`, `stdio.c` e `spike_exit.S` |
 | `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`) |
 | `tools/Tools/` | Submódulo do pacote [`riscv-tools`](tools/Tools/README.md) |
@@ -33,6 +34,7 @@ uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   #
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulação
 uv run riscv-tools --config tools/riscv_build/config.yaml run                  # suíte de hardware real
 uv run riscv-tools --config tools/riscv_build/config.yaml sim                  # suíte de simulação
+uv run riscv-tools --root . check-memory-map --platform platforms/internal-mem.yaml   # mapa de memória
 ```
 
 Ver [tools/Tools/README.md](tools/Tools/README.md) pra referência
