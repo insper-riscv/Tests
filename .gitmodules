@@ -1,6 +1,3 @@
 [submodule "tools/Tools"]
 	path = tools/Tools
 	url = https://github.com/insper-riscv/Tools.git
-[submodule "vendor/riscv-arch-test"]
-	path = vendor/riscv-arch-test
-	url = https://github.com/riscv/riscv-arch-test.git
