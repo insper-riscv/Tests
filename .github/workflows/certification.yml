@@ -22,25 +22,14 @@ concurrency:
 jobs:
   act4-im:
     # Same tier as sim.yml: ACT4 tests run entirely under cocotb/GHDL,
-    # never on the FPGA, on a GitHub-hosted runner with the same cached
-    # toolchain.
+    # never on the FPGA, on a GitHub-hosted runner, in the same
+    # toolchain image (its Spike is ACT4's ref_model_exe, and curl and git
+    # are there for the mise installer and the checkout).
     runs-on: ubuntu-latest
     container:
-      image: ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+      image: ghcr.io/insper-riscv/infra-toolchain:sha-a3481e0
 
     steps:
-      # Same reasoning as sim.yml: the ghdl/ghdl image has no git
-      # (actions/checkout needs it for `submodules: true`), and no
-      # libmpc3/libmpfr6 (the RISC-V gcc's cc1 links against them) or
-      # the boost libraries (Spike's runtime). curl is for the mise
-      # installer below.
-      - name: Install system dependencies (git, curl, gcc and Spike runtime libraries)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git ca-certificates curl libmpc3 libmpfr6 \
-            libboost-regex1.83.0 libboost-system1.83.0
-
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -54,9 +43,6 @@ jobs:
           rm -rf ../RV32IM
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
-
-      - name: RISC-V GCC (picolibc) and Spike (ACT4's ref_model_exe), built as Infra does, cached
-        uses: ./.github/actions/riscv-toolchain
 
       # mise provisions Ruby+Bundler (and the pinned uv) for ACT4's
       # own UDB toolchain automatically — see vendor/riscv-arch-test's
@@ -82,8 +68,6 @@ jobs:
         # calls `make`.
         working-directory: vendor/riscv-arch-test/framework/src/act/data
         run: mise exec -- bundle install
-
-      - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync

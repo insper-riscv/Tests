@@ -13,26 +13,16 @@ jobs:
   test-sim:
     # Needs no hardware and no Quartus license (GHDL is open source), so
     # it runs on a GitHub-hosted runner, independent of any workstation.
-    # The RISC-V toolchain is built by the recipes of insper-riscv/Infra
-    # (see the local action below) and cached across runs.
+    # The image is insper-riscv/Infra's toolchain image (docs/en/
+    # TOOLCHAIN_IMAGE.md there): GHDL, the RISC-V GCC with picolibc, Spike
+    # and uv already on PATH, so nothing is built or installed here. It is
+    # pinned to the sha- tag of a publication; to update the toolchain,
+    # change the tag to a newer one.
     runs-on: ubuntu-latest
     container:
-      image: ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+      image: ghcr.io/insper-riscv/infra-toolchain:sha-a3481e0
 
     steps:
-      # ghdl/ghdl's image has no git, so actions/checkout falls back to
-      # downloading via the GitHub REST API, which doesn't support
-      # `submodules: true`. Installing git first lets checkout use a real
-      # clone. libmpc3 and libmpfr6 are what the RISC-V gcc's cc1 links
-      # against and the boost libraries are Spike's runtime, all needed
-      # even when the toolchain comes from the cache.
-      - name: Install git and the runtime libraries of the RISC-V gcc and Spike (missing from the ghdl/ghdl image)
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            git ca-certificates libmpc3 libmpfr6 \
-            libboost-regex1.83.0 libboost-system1.83.0
-
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -50,11 +40,6 @@ jobs:
           rm -rf ../RV32IM ../src
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
-
-      - name: RISC-V GCC (picolibc) and Spike, built as Infra does, cached
-        uses: ./.github/actions/riscv-toolchain
-
-      - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync
