@@ -17,7 +17,7 @@ jobs:
     # TOOLCHAIN_IMAGE.md there): GHDL, the RISC-V GCC with picolibc, Spike
     # and uv already on PATH, so nothing is built or installed here. It is
     # the latest publication; to pin one, use its sha- tag.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container:
       image: ghcr.io/insper-riscv/infra-toolchain:latest
 

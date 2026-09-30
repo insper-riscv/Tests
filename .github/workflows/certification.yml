@@ -25,7 +25,7 @@ jobs:
     # never on the FPGA, on a GitHub-hosted runner, in the same
     # toolchain image (its Spike is ACT4's ref_model_exe, and curl and git
     # are there for the mise installer and the checkout).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     container:
       image: ghcr.io/insper-riscv/infra-toolchain:latest
 
@@ -43,6 +43,13 @@ jobs:
           rm -rf ../RV32IM
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
+
+      - name: Install a C compiler (native extensions of ACT4's Ruby gems)
+        # The toolchain image has only the RISC-V cross compiler, and
+        # bundler builds gems such as nkf with the host's cc and make.
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential
 
       # mise provisions Ruby+Bundler (and the pinned uv) for ACT4's
       # own UDB toolchain automatically — see vendor/riscv-arch-test's
