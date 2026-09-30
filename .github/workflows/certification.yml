@@ -44,12 +44,14 @@ jobs:
           git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
           ln -s RV32IM/src ../src
 
-      - name: Install a C compiler (native extensions of ACT4's Ruby gems)
-        # The toolchain image has only the RISC-V cross compiler, and
-        # bundler builds gems such as nkf with the host's cc and make.
+      - name: Install the host packages ACT4 uses
+        # The toolchain image has only the RISC-V cross compiler: bundler
+        # builds gems such as nkf with the host's cc and make
+        # (build-essential), and ACT4 runs dtc (device-tree-compiler) to
+        # build each test's device tree.
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends build-essential
+          apt-get install -y --no-install-recommends build-essential device-tree-compiler
 
       # mise provisions Ruby+Bundler (and the pinned uv) for ACT4's
       # own UDB toolchain automatically — see vendor/riscv-arch-test's
