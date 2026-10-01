@@ -21,6 +21,13 @@ comparison, running the simulation) is `riscv-tools` code, so it's
 fixed/extended in one place ([insper-riscv/Tools](https://github.com/insper-riscv/Tools))
 instead of drifting between copies.
 
+> **The platform moved.** Everything about the machine (toolchain, memory map, Quartus
+> project, simulation, runtime, the `docs/` that describe them) is in
+> [insper-riscv/TopLevel](https://github.com/insper-riscv/TopLevel); this project's
+> `config.yaml` extends `TopLevel/platforms/internal-mem/config.yaml`. References below to
+> `platform/`, `rv32im-fpga.specs`, `tests/FPGA/core/quartus` and `rv32i3stage_core_sim_test`
+> are there now (`platforms/internal-mem/{runtime,quartus,rtl}`).
+
 This repo is itself vendored as [RV32IM](https://github.com/insper-riscv/RV32IM)'s
 own `Tests/` git submodule; RV32IM's root is one level up from this
 project's own root (see `quartus.project_dir` in `config.yaml`).

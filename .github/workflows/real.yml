@@ -43,30 +43,20 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout RV32IM (holds the real Quartus project)
-        # config.yaml's quartus.project_dir is "../tests/FPGA/core/quartus",
-        # relative to this checkout — true by accident on a workstation
-        # where this repo is nested at RV32IM/Tests/ (see
-        # HARDWARE_PROGRAMMING.md), so "../tests" IS RV32IM's own tests/
-        # directly, no "RV32IM" path segment in between. A bare CI
-        # checkout of just this repo has no such parent, so without the
-        # symlink below Quartus fails with "Top-level design entity
-        # 'core_fpga_test' is undefined" (it's compiling an empty/wrong
-        # directory). RV32IM is public, no auth needed to clone it.
+      - name: Checkout Core, Memory and TopLevel (the real Quartus project)
+        # config.yaml extends TopLevel's platform config: quartus.project_dir is
+        # "../TopLevel/platforms/internal-mem/quartus", relative to this checkout,
+        # true by accident on a workstation where this repo is nested at
+        # RV32IM/Tests/ (see TopLevel's docs/HARDWARE_PROGRAMMING.md). A bare CI
+        # checkout has no such parent, so clone the three next to it; the
+        # Quartus project names the core's files as ../../../../Core/... and
+        # the IPs as ../../../../Memory/ips/..., the siblings of TopLevel. This
+        # self-hosted runner's _work is not wiped between runs, so start clean.
         run: |
-          rm -rf ../RV32IM
-          git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
-          # The Quartus project names the core's files as ../../../../Core/...
-          # and the IPs as ../../../../Memory/ips/... (the RV32IM checkout's
-          # own submodules).
-          git -C ../RV32IM submodule update --init Core Memory
-          # This self-hosted runner's _work isn't wiped between runs
-          # (unlike a hosted runner), so a stale ../tests left over
-          # from before this symlink existed (a real directory, not a
-          # symlink) makes `ln -s` create the link *inside* it instead
-          # of replacing it — always start from a clean slate.
-          rm -rf ../tests
-          ln -s RV32IM/tests ../tests
+          rm -rf ../Core ../Memory ../TopLevel
+          git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
+          git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
+          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
