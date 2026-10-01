@@ -2,12 +2,13 @@
 
 The per-entity tests of the core itself (ALU, register file, control, hazard and
 forwarding units, extenders, store manager, bubble mux, instruction decoder)
-moved to [Core](https://github.com/insper-riscv/Core) and the memory model tests
-to [Memory](https://github.com/insper-riscv/Memory), with their history. What
-stays here needs the simulation top or the clock generator: `clk_gen_3way` and
-the whole-core instruction tests (`unittests/instructions`). Paths in
+moved to [Core](https://github.com/insper-riscv/Core), the memory model tests to
+[Memory](https://github.com/insper-riscv/Memory) and the clock generator's to
+[TopLevel](https://github.com/insper-riscv/TopLevel), with their history. What stays
+here needs the platform's simulation top: the whole-core instruction tests
+(`unittests/instructions`), all `skip`ped. Paths in
 `tests.json` are relative to this repository's root: `../Core/...` for the core,
-`../Memory/...` for the memories, `../src/...` for RV32IM's simulation top.
+`../Memory/...` for the memories, `../TopLevel/...` for the platform's simulation top.
 
 
 Cocotb testbenches that exercise individual VHDL entities (`ALU`,

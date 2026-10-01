@@ -45,17 +45,15 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout Core, Memory and RV32IM (VHDL sources and the Quartus project)
-        # config.yaml's paths are relative to a checkout nested at
-        # RV32IM/Tests/: ../Core is the core, ../Memory the memories and IPs,
-        # ../src the simulation top, ../tests the Quartus project (see sim.yml and real.yml).
+      - name: Checkout Core, Memory and TopLevel (VHDL sources and the Quartus project)
+        # config.fpga-sim.yaml's paths are relative to a checkout with the
+        # repositories side by side: ../Core is the core, ../Memory the memories
+        # and IPs, ../TopLevel the platform (see sim.yml and real.yml).
         run: |
-          rm -rf ../Core ../Memory ../RV32IM ../src ../tests
+          rm -rf ../Core ../Memory ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
-          ln -s RV32IM/src ../src
-          ln -s RV32IM/tests ../tests
+          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
       - name: Check the Quartus simulation library
         run: ls "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf.vhd "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf_components.vhd

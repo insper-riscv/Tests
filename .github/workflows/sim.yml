@@ -26,21 +26,19 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout Core, Memory and RV32IM (the VHDL sources)
-        # config.yaml's sim.vhdl_sources are "../Core/..." (the core),
-        # "../Memory/..." (the memories) and "../src/..." (the simulation
-        # top), relative to
-        # this checkout: true by accident on a workstation where this repo
-        # is nested at RV32IM/Tests/ (see HARDWARE_PROGRAMMING.md), but a
-        # bare CI checkout of just this repo has no parent, so ghdl fails
-        # with "not found". Clone Core next to it, and RV32IM with its src/
-        # linked into the sibling path config.yaml expects.
+      - name: Checkout Core, Memory and TopLevel (the VHDL sources and the platform)
+        # config.yaml extends ../../../TopLevel/platforms/internal-mem/config.yaml, and
+        # the platform's paths are relative to this project's root:
+        # "../Core/..." (the core), "../Memory/..." (the memories) and
+        # "../TopLevel/..." (the simulation top, the runtime and the testbench).
+        # True by accident on a workstation where this repo is nested at
+        # RV32IM/Tests/ (see TopLevel's docs/HARDWARE_PROGRAMMING.md), but a bare
+        # CI checkout of just this repo has no parent: clone the three next to it.
         run: |
-          rm -rf ../Core ../Memory ../RV32IM ../src
+          rm -rf ../Core ../Memory ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/RV32IM.git ../RV32IM
-          ln -s RV32IM/src ../src
+          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync
@@ -49,10 +47,10 @@ jobs:
         run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 
       - name: Check the memory map against every copy
-        # platforms/internal-mem.yaml is the source of truth; the boot ROM,
+        # TopLevel's platforms/internal-mem/platform.yaml is the source of truth; the boot ROM,
         # the runtime, the linker flags, config.yaml, the core's VHDL and the
         # Quartus IPs must all agree with it.
-        run: uv run riscv-tools --root . check-memory-map --platform platforms/internal-mem.yaml
+        run: uv run riscv-tools --root ../TopLevel check-memory-map --platform platforms/internal-mem/platform.yaml
 
       - name: Build sim test ROM images
         # compile also generates each C memory test's golden under Spike.
