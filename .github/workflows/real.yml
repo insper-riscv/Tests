@@ -58,6 +58,23 @@ jobs:
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
           git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
+      - name: Check the Quartus project reads VHDL-2008
+        # The core uses VHDL-2008 (e.g. `else generate` in the HAS_M selection), and
+        # GHDL's --std=08 in the other workflows hides a Quartus project that still
+        # reads VHDL-1993: only the several-minute synthesis would fail, with
+        # "elsif or else statement inside a generate statement is not supported in
+        # VHDL_1993". Fail in seconds instead, and keep every VHDL file the core
+        # instantiates in the project (m_decode.vhd was once missing).
+        run: |
+          qsf=../TopLevel/platforms/internal-mem/quartus/core_fpga_test.qsf
+          if ! grep -Eq '^set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008' "$qsf"; then
+            echo "::error::$qsf does not set VHDL_INPUT_VERSION VHDL_2008; Quartus would read the core as VHDL-1993 and fail in synthesis"
+            exit 1
+          fi
+          for f in ../Core/common/*.vhd ../Core/I/*.vhd ../Core/M/m_decode.vhd; do
+            grep -q "Core/${f#../Core/}" "$qsf" || { echo "::error::$f is not in $qsf"; exit 1; }
+          done
+
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
         # runner. Reached via /opt/altera_lite (a bind mount of
@@ -96,52 +113,64 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Check the RISC-V toolchain (installed by insper-riscv/Infra)
-        # The GCC (with picolibc) and the patched Spike live in the
-        # workstation's shared cache, /opt/riscv-foundation, with wrappers
-        # in /usr/local/bin: Infra's GCC_SETUP.md and SPIKE_SETUP.md
-        # install them, and this workflow builds and downloads nothing.
-        # config.yaml links tests against picolibc, so fail here, with a
-        # pointer, if this runner lacks it.
+      - name: Pull the toolchain image (insper-riscv/Infra)
+        # GCC with picolibc, Spike and uv come from the image, never from the
+        # runner's own install, so the ROMs and the goldens are the same on every
+        # machine. Only Quartus and the JTAG cable stay on the runner. The runner
+        # user must be in the docker group. The image is the latest publication;
+        # to pin one, use its sha- tag.
+        run: docker pull ghcr.io/insper-riscv/infra-toolchain:latest
+
+      - name: Install the `toolchain` wrapper (runs a command in the image)
+        # Mounts the directory that holds this checkout and its siblings
+        # (Core, Memory, TopLevel), as the runner user so the files it writes are
+        # not owned by root, with its own virtualenv so it leaves the runner's
+        # .venv alone. Same as RV32's scripts/toolchain.sh, which is not in this
+        # repository.
         run: |
-          # Captured in variables: `cmd | head -1` under pipefail (the
-          # default for `bash` here) fails with SIGPIPE when the command
-          # has more output than the first line, as spike --help does.
-          gcc_version=$(riscv32-unknown-elf-gcc --version)
-          echo "${gcc_version%%$'\n'*}"
-          if ! riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; then
-            echo "::error::riscv32-unknown-elf-gcc has no picolibc; install the toolchain as in insper-riscv/Infra's GCC_SETUP.md"
-            exit 1
-          fi
-          spike_help=$(spike --help 2>&1 || true)
-          echo "${spike_help%%$'\n'*}"
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/toolchain" <<EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec docker run --rm --user "\$(id -u):\$(id -g)" \\
+            -e HOME=/tmp -e UV_LINK_MODE=copy -e UV_PROJECT_ENVIRONMENT=/tmp/venv \\
+            -v "$(dirname "$GITHUB_WORKSPACE"):/workspace" \\
+            -w "/workspace/$(basename "$GITHUB_WORKSPACE")" \\
+            ghcr.io/insper-riscv/infra-toolchain:latest "\$@"
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/toolchain"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Generate rv32_test.h
+        run: toolchain uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
+
+      - name: Build real test ROM images and their goldens (in the image)
+        # compile also generates each C memory test's golden under Spike.
+        run: toolchain uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
 
       - uses: astral-sh/setup-uv@v10.0.1
 
-      - name: Install Python dependencies (riscv-tools, editable from tools/Tools)
+      - name: Install Python dependencies for the board run (riscv-tools, editable from tools/Tools)
+        # On the runner itself: this step talks to Quartus and the JTAG cable.
         run: uv sync
-
-      - name: Generate rv32_test.h
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
-
-      - name: Build real test ROM images
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
 
       - name: Run tests on the FPGA
         # PYTHONUNBUFFERED: Python fully-buffers stdout when it isn't a
         # TTY (always true under Actions' log capture), so without this
         # a 40+ minute run can show a blank log the whole time even
-        # though it's progressing normally — not actually stuck.
-        # `tee` also mirrors into build/real/latest.log (same fixed path
-        # used for local `tail -f`), so a run kicked off by CI is
-        # watchable the same way as a local one, from the runner itself.
-        #
-        # set -o pipefail: this shell (`bash -e {0}`, Actions' default)
-        # does NOT set pipefail on its own — without it, `cmd | tee`
-        # always exits 0 (tee's own exit code), so a failing test suite
-        # would silently show this step as green.
+        # though it's progressing normally, not actually stuck.
+        # riscv-tools' run_log also writes the whole run, Quartus output
+        # included, to logs/real/latest.log (the previous one is archived),
+        # so a run kicked off by CI is watchable from the runner with
+        # `tail -f` like a local one.
         env:
           PYTHONUNBUFFERED: "1"
-        run: |
-          set -o pipefail
-          uv run riscv-tools --config tools/riscv_build/config.yaml run | tee build/real/latest.log
+        run: uv run riscv-tools --config tools/riscv_build/config.yaml run
+
+      - name: Upload the run log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: real-run-log
+          path: logs/real/latest.log
+          if-no-files-found: ignore
