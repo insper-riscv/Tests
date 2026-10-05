@@ -8,13 +8,15 @@
 // reasoning applied to the original full.S sections. Seeds its own
 // byte at TEST_DATA_BASE (same value full.S itself seeds there)
 // rather than depending on any other test having run first.
+#include "rv32_platform.h"
+
 
     .section .text
     .globl main
 
     # RAM starts at 0x00008000 now (Harvard modificado).
-    .equ RESULTS_BASE,   0x00008000
-    .equ TEST_DATA_BASE, 0x00008200
+    .equ RESULTS_BASE,   RV32_RAM_BASE
+    .equ TEST_DATA_BASE, RV32_RAM_BASE + 0x200
 
 main:
     li   x5, RESULTS_BASE
@@ -30,7 +32,7 @@ main:
 
     # Signal PASS via the mailbox (see include/rv32_test.h /
     # config.yaml memory.mailbox_addr — 0x0002FFFC).
-    lui  x15, 0x30
+    li  x15, RV32_RAM_END
     addi x14, x0, 1
     sw   x14, -4(x15)          // mailbox = 1
 

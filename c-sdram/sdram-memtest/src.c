@@ -2,7 +2,8 @@
 #include "rv32_test.h"
 #include "rv32_sdram.h"
 
-// The classic memory tests on the SDRAM: the data bus, the address bus and a window.
+// The classic memory tests on the SDRAM: the data bus, the address bus and a window. They use the
+// test window of rv32_sdram.h, away from the program's own data and the stack.
 
 int main(void) {
     volatile unsigned int *m = RV32_SDRAM;
@@ -30,9 +31,9 @@ int main(void) {
         if (m[i + 8] != rv32_sdram_data(i)) RV32_FAIL();
     }
 
-    // the last word of the chip
-    m[RV32_SDRAM_WORDS - 1] = 0x600DF00Du;
-    if (m[RV32_SDRAM_WORDS - 1] != 0x600DF00Du) RV32_FAIL();
+    // the last word of the test window
+    m[RV32_SDRAM_TEST_WORDS - 1] = 0x600DF00Du;
+    if (m[RV32_SDRAM_TEST_WORDS - 1] != 0x600DF00Du) RV32_FAIL();
 
     RV32_PASS();
 }

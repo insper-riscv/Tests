@@ -3,7 +3,7 @@
 extends: ../../../TopLevel/platforms/sdram/config.yaml
 
 paths:
-  include_dir: tools/riscv_build/include
+  include_dir: tools/riscv_build/include-sdram
   build_dir: build-sdram
   c_dir: c-sdram
   asm_dir: asm-sdram
