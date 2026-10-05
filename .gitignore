@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 build/
+build-sdram/
 cache/
 sim_build/
 .venv/

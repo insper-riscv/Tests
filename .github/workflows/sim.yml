@@ -59,6 +59,20 @@ jobs:
       - name: Run sim tests
         run: uv run riscv-tools --config tools/riscv_build/config.yaml sim
 
+      - name: Existing programs on the SDRAM platform
+        # The SDRAM platform adds the 64 MB SDRAM (bridge, controller and chip model of Memory) to the
+        # core; these programs do not use it, so every result must be the one of internal-mem.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit hex
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml sim
+
+      - name: Programs that use the SDRAM
+        # c-sdram/: self-checking programs (the data and address bus, byte and halfword accesses,
+        # copies, loops, multiply and divide with operands in the SDRAM, refresh).
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit hex
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml sim
+
       - name: Run per-entity VHDL unit tests (tests/python/)
         run: uv run python tests/python/runner.py
 

@@ -17,7 +17,8 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 | Caminho | Conteúdo |
 | :--- | :--- |
 | `asm/`, `c/` | Os 89 testes da suíte (52 em assembly, 37 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
-| `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`): estende a da plataforma, que está no [TopLevel](https://github.com/insper-riscv/TopLevel) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
+| `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
+| `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, e `config.sdram.yaml` e `config.sdram-regression.yaml` para a plataforma com SDRAM): estende a da plataforma, que está no [TopLevel](https://github.com/insper-riscv/TopLevel) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tools/Tools/` | Submódulo do pacote [`riscv-tools`](tools/Tools/README.md) |
 | `tests/python/` | O que sobrou dos testes por entidade: sequências de instrução cruas (todas com `skip`, escritas para a arquitetura antiga), no `tests.json`; ver [tests/python/README.md](tests/python/README.md) |
 | `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação), `sim-fpga.yml` (simulação do topo de hardware) |

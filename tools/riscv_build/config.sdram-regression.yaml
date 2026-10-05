@@ -1,0 +1,9 @@
+# The existing programs (c/ and asm/) on the SDRAM platform: the SDRAM is there but the programs
+# do not use it, so every result must be the same as on internal-mem. Same layout as config.yaml.
+extends: ../../../TopLevel/platforms/sdram/config.yaml
+
+paths:
+  include_dir: tools/riscv_build/include
+  build_dir: build
+  c_dir: c
+  asm_dir: asm
