@@ -65,6 +65,7 @@ jobs:
         # The SDRAM platform adds the 64 MB SDRAM (bridge, controller and chip model of Memory) to the
         # core; these programs do not use it, so every result must be the one of internal-mem.
         run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
           uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit hex
           uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml sim
 
