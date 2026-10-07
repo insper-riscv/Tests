@@ -1,0 +1,9 @@
+# The programs that use the SDRAM (c-sdram/), on the SDRAM platform. They are self-checking: each one
+# signals RV32_FAIL() when a read does not return what was written, so no reference output is needed.
+extends: ../../../TopLevel/platforms/sdram/config.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-sdram
+  build_dir: build-sdram
+  c_dir: c-sdram
+  asm_dir: asm-sdram

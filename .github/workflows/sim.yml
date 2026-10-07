@@ -34,11 +34,8 @@ jobs:
         # True by accident on a workstation where this repo is nested at
         # RV32IM/Tests/ (see TopLevel's docs/HARDWARE_PROGRAMMING.md), but a bare
         # CI checkout of just this repo has no parent: clone the three next to it.
-        run: |
-          rm -rf ../Core ../Memory ../TopLevel
-          git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
-          git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
+        # main of each, or the branch .github/sibling-branches names (companion pull requests).
+        run: .github/scripts/clone-siblings.sh
 
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync
@@ -52,12 +49,32 @@ jobs:
         # Quartus IPs must all agree with it.
         run: uv run riscv-tools --root ../TopLevel check-memory-map --platform platforms/internal-mem/platform.yaml
 
+      - name: Check the SDRAM platform's memory map against every copy
+        # Same check for the platform where the SDRAM is the RAM: its runtime, linker flags,
+        # config.yaml and the core's VHDL must agree with platforms/sdram/platform.yaml.
+        run: uv run riscv-tools --root ../TopLevel check-memory-map --platform platforms/sdram/platform.yaml
+
       - name: Build sim test ROM images
         # compile also generates each C memory test's golden under Spike.
         run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
 
       - name: Run sim tests
         run: uv run riscv-tools --config tools/riscv_build/config.yaml sim
+
+      - name: Existing programs on the SDRAM platform
+        # The SDRAM platform adds the 64 MB SDRAM (bridge, controller and chip model of Memory) to the
+        # core; these programs do not use it, so every result must be the one of internal-mem.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit hex
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml sim
+
+      - name: Programs that use the SDRAM
+        # c-sdram/: self-checking programs (the data and address bus, byte and halfword accesses,
+        # copies, loops, multiply and divide with operands in the SDRAM, refresh).
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit hex
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml sim
 
       - name: Run per-entity VHDL unit tests (tests/python/)
         run: uv run python tests/python/runner.py

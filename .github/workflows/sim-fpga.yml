@@ -49,11 +49,8 @@ jobs:
         # config.fpga-sim.yaml's paths are relative to a checkout with the
         # repositories side by side: ../Core is the core, ../Memory the memories
         # and IPs, ../TopLevel the platform (see sim.yml and real.yml).
-        run: |
-          rm -rf ../Core ../Memory ../TopLevel
-          git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
-          git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
+        # main of each, or the branch .github/sibling-branches names (companion pull requests).
+        run: .github/scripts/clone-siblings.sh
 
       - name: Check the Quartus simulation library
         run: ls "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf.vhd "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf_components.vhd

@@ -52,11 +52,8 @@ jobs:
         # Quartus project names the core's files as ../../../../Core/... and
         # the IPs as ../../../../Memory/ips/..., the siblings of TopLevel. This
         # self-hosted runner's _work is not wiped between runs, so start clean.
-        run: |
-          rm -rf ../Core ../Memory ../TopLevel
-          git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
-          git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
+        # main of each, or the branch .github/sibling-branches names (companion pull requests).
+        run: .github/scripts/clone-siblings.sh
 
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
@@ -122,10 +119,14 @@ jobs:
         run: uv sync
 
       - name: Generate rv32_test.h
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
+        run: uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
 
       - name: Build real test ROM images
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
+        # The board runs the SDRAM platform (the SDRAM is the RAM; the host reaches it through the
+        # JTAG debug port): the existing programs, then the ones that use the SDRAM.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit mif
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit mif
 
       - name: Run tests on the FPGA
         # PYTHONUNBUFFERED: Python fully-buffers stdout when it isn't a
@@ -144,4 +145,5 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: |
           set -o pipefail
-          uv run riscv-tools --config tools/riscv_build/config.yaml run | tee build/real/latest.log
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml run | tee build/real/latest.log
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml run --skip-reconfigure | tee build-sdram/real/latest.log

@@ -19,6 +19,8 @@
 //
 // This test does the same lui/sw/lw, then re-stores the loaded-back
 // value at the same base for the memory check to read.
+#include "rv32_platform.h"
+
 
     .section .text
     .globl main
@@ -27,7 +29,7 @@ main:
     // pattern. 0x8100 = RAM base (0x8000, Harvard modificado) +
     // 0x100 (arbitrary, just clear of every other test's addresses
     // and the mailbox at 0x2FFFC).
-    li   x9, 0x8100
+    li   x9, RV32_RAM_BASE + 0x100
 
     // --- full.S section 6, LUI+SW+LW sub-case, same instructions ---
     lui  x19, 0x7F000          // 0x7F000000
@@ -43,7 +45,7 @@ main:
     // in assembly rather than #include-ing rv32_test.h and calling
     // RV32_PASS(): it's a `static inline` C function, so it has no
     // linkable symbol a separate .S file could `call`.
-    lui  x15, 0x30
+    li  x15, RV32_RAM_END
     addi x14, x0, 1
     sw   x14, -4(x15)          // mailbox = 1
 
