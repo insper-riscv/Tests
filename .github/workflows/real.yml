@@ -19,10 +19,14 @@ concurrency:
 
 jobs:
   test-real:
-    # Only runs on main (or on demand) — needs licensed Quartus and
-    # real hardware attached over JTAG, so it stays off feature
+    # Only runs on main (or on demand) — needs Quartus and the
+    # board attached over JTAG, so it stays off feature
     # branches/PRs by default.
     runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
+    env:
+      IMAGE: ghcr.io/insper-riscv/infra-toolchain:latest
+      # the host installation of Quartus, mounted read-only into the container
+      QUARTUS_ROOT: /opt/altera_lite
 
     steps:
       - name: Authorize manual run
@@ -42,18 +46,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
-
-      - name: Checkout Core, Memory and TopLevel (the real Quartus project)
-        # config.yaml extends TopLevel's platform config: quartus.project_dir is
-        # "../TopLevel/platforms/internal-mem/quartus", relative to this checkout,
-        # true by accident on a workstation where this repo is nested at
-        # RV32IM/Tests/ (see TopLevel's docs/HARDWARE_PROGRAMMING.md). A bare CI
-        # checkout has no such parent, so clone the three next to it; the
-        # Quartus project names the core's files as ../../../../Core/... and
-        # the IPs as ../../../../Memory/ips/..., the siblings of TopLevel. This
-        # self-hosted runner's _work is not wiped between runs, so start clean.
-        # main of each, or the branch .github/sibling-branches names (companion pull requests).
-        run: .github/scripts/clone-siblings.sh
 
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
@@ -93,57 +85,43 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Check the RISC-V toolchain (installed by insper-riscv/Infra)
-        # The GCC (with picolibc) and the patched Spike live in the
-        # workstation's shared cache, /opt/riscv-foundation, with wrappers
-        # in /usr/local/bin: Infra's GCC_SETUP.md and SPIKE_SETUP.md
-        # install them, and this workflow builds and downloads nothing.
-        # config.yaml links tests against picolibc, so fail here, with a
-        # pointer, if this runner lacks it.
-        run: |
-          # Captured in variables: `cmd | head -1` under pipefail (the
-          # default for `bash` here) fails with SIGPIPE when the command
-          # has more output than the first line, as spike --help does.
-          gcc_version=$(riscv32-unknown-elf-gcc --version)
-          echo "${gcc_version%%$'\n'*}"
-          if ! riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; then
-            echo "::error::riscv32-unknown-elf-gcc has no picolibc; install the toolchain as in insper-riscv/Infra's GCC_SETUP.md"
-            exit 1
-          fi
-          spike_help=$(spike --help 2>&1 || true)
-          echo "${spike_help%%$'\n'*}"
+      - name: Pull the toolchain image
+        # Everything but Quartus and the board runs in Insper/Infra's toolchain image (GHDL, the RISC-V
+        # GCC with picolibc, Spike, uv, Python and cocotb): the workstation provides nothing else, so a
+        # run does not depend on what is installed on it. `latest` is the last publication; to pin
+        # one, use its sha- tag.
+        run: docker pull "$IMAGE"
 
-      - uses: astral-sh/setup-uv@v10.0.1
-
-      - name: Install Python dependencies (riscv-tools, editable from tools/Tools)
-        run: uv sync
-
-      - name: Generate rv32_test.h
-        run: uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
-
-      - name: Build real test ROM images
-        # The board runs the SDRAM platform (the SDRAM is the RAM; the host reaches it through the
-        # JTAG debug port): the existing programs, then the ones that use the SDRAM.
-        run: |
-          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit mif
-          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit mif
-
-      - name: Run tests on the FPGA
-        # PYTHONUNBUFFERED: Python fully-buffers stdout when it isn't a
-        # TTY (always true under Actions' log capture), so without this
-        # a 40+ minute run can show a blank log the whole time even
-        # though it's progressing normally — not actually stuck.
-        # `tee` also mirrors into build/real/latest.log (same fixed path
-        # used for local `tail -f`), so a run kicked off by CI is
-        # watchable the same way as a local one, from the runner itself.
+      - name: Build the ROM images and run the suite on the FPGA
+        # One container: it clones the sibling repositories, builds the images and goldens
+        # (Spike), then runs the suite, which compiles the Quartus project, programs the board and
+        # loads every program over JTAG (.github/scripts/real-run.sh).
         #
-        # set -o pipefail: this shell (`bash -e {0}`, Actions' default)
-        # does NOT set pipefail on its own — without it, `cmd | tee`
-        # always exits 0 (tee's own exit code), so a failing test suite
-        # would silently show this step as green.
+        # What the host lends it: Quartus (read-only) and the JTAG server of the host (jtagd) through
+        # the host network; the USB-Blaster is not passed into the container. The run is the invoking
+        # user's (--user) so the files it writes belong to the runner; --userns=host keeps that valid
+        # on a Docker daemon that remaps users, and does nothing on one that does not.
+        #
+        # The checkout is the working directory; its parent is mounted too because the sibling
+        # repositories (Core, Memory, TopLevel) are cloned next to it.
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          set -o pipefail
-          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml run | tee build/real/latest.log
-          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml run --skip-reconfigure | tee build-sdram/real/latest.log
+          workspace="$(pwd)"
+          docker run --rm \
+            --network host --userns=host --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/home -e UV_CACHE_DIR=/tmp/home/uv -e UV_LINK_MODE=copy -e PYTHONUNBUFFERED \
+            -v "$(dirname "$workspace"):/work" \
+            -v "$QUARTUS_ROOT:$QUARTUS_ROOT:ro" \
+            -w "/work/$(basename "$workspace")" \
+            "$IMAGE" bash .github/scripts/real-run.sh
+
+      - name: Upload the run log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: real-logs
+          path: |
+            build/real/latest.log
+            build-sdram/real/latest.log
+          if-no-files-found: ignore
