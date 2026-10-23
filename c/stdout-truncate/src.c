@@ -1,10 +1,11 @@
 // RV32_TEST_KIND: unit
 #include "rv32_test.h"
+#include "rv32_platform.h"
 #include <stdio.h>
 
 // stdout's buffer is linear and 1024 bytes (platform/stdio.c): writing
 // more fills it, drops the rest and sets the "truncated" flag.
-#define STDOUT_BASE 0x0002FBE0u
+#define STDOUT_BASE RV32_STDOUT_BASE
 
 struct stdout_buffer {
     volatile unsigned int length;

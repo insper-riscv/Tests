@@ -6,12 +6,14 @@
 // pass/fail) so a failure points at exactly which one broke — same
 // reasoning as arithmetic-basic's own split from full.S, one level
 // deeper.
+#include "rv32_platform.h"
+
 
     .section .text
     .globl main
 
 main:
-    li   x5, 0x00008000        # x5 = RESULTS_BASE (RAM now starts at 0x8000)
+    li   x5, RV32_RAM_BASE        # x5 = RESULTS_BASE (RAM now starts at 0x8000)
 
     # ADDI: x11 = 5
     addi x11, x0, 5
@@ -24,7 +26,7 @@ main:
 
     # Signal PASS via the mailbox (see include/rv32_test.h /
     # config.yaml memory.mailbox_addr — 0x0002FFFC).
-    lui  x15, 0x30
+    li  x15, RV32_RAM_END
     addi x14, x0, 1
     sw   x14, -4(x15)          // mailbox = 1
 
