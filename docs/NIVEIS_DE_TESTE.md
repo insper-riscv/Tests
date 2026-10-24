@@ -130,7 +130,7 @@ Dois verificadores independentes, com perguntas diferentes.
 
 `ghdl --synth` é mais permissivo que o subconjunto de VHDL-2008 que o Quartus aceita, então passar nele não garante que o Quartus aceite. Ele serve como checagem rápida e independente de licença, e como primeiro passo para a verificação formal do nível 7. Hoje só é rodado à mão.
 
-Margens de timing do projeto da plataforma `sdram` no modelo lento a 85 °C, com os tempos do chip ainda provisórios (valores usuais de uma SDR de 143 MHz):
+Margens de timing do projeto da plataforma `sdram` no modelo lento a 85 °C, com os tempos do chip do datasheet (ISSI IS42/45S16320D, grau -7):
 
 | Caminho | Margem |
 | :--- | ---: |
