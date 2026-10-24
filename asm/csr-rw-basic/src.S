@@ -11,6 +11,7 @@
 
 main:
     li   x5, RV32_RAM_BASE        # x5 = RESULTS_BASE
+    csrw   mscratch, x0           # a board does not reset the CSRs between tests
     li   x28, 0x12345678
     csrrw  x6, mscratch, x28      # x6 = 0 (reset value)
     csrrw  x7, mscratch, x0       # x7 = 0x12345678; mscratch = 0
