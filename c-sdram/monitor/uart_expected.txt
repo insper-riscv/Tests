@@ -1,0 +1,31 @@
+monitor ready
+help
+help | peek A | poke A V | dump A N | run A | status | reset | quit
+peek 40000000
+40000000: 00000000
+poke 40100000 00100513
+poke 40100004 00008067
+run 40100000
+returned 00000001
+poke 40100008 1234abcd
+dump 40100008 1
+40100008: 1234abcd
+dump 40100000 3
+40100000: 00100513 00008067 1234abcd
+status
+index 00 state 0000
+peek 40000001
+error: address not word-aligned
+frob
+error: unknown command or wrong arguments
+poke 40100008
+error: unknown command or wrong arguments
+peek zz
+error: bad number
+run 40100000 40100000 4
+error: too many words
+
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+error: line too long
+quit
+bye

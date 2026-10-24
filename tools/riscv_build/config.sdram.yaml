@@ -7,3 +7,8 @@ paths:
   build_dir: build-sdram
   c_dir: c-sdram
   asm_dir: asm-sdram
+
+# the monitor waits for someone to type: on the board it runs with --only, then
+# `console --interactive` talks to it
+orchestrator:
+  interactive: [monitor]
