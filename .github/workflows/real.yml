@@ -8,13 +8,21 @@ on:
       confirm:
         description: "Repo secret FPGA_RUN_SECRET's value, to confirm you're allowed to run this on the physical FPGA"
         required: true
+      peripherals_ref:
+        description: "Peripherals branch/tag to test (use UART before that branch is merged)"
+        required: true
+        default: main
+      toplevel_ref:
+        description: "TopLevel branch/tag to test (use UART before that branch is merged)"
+        required: true
+        default: main
 
 concurrency:
-  # Queue instead of overlapping/canceling: cancel-in-progress could
-  # kill a run mid quartus_pgm/JTAG write and leave the board or the
-  # In-System Memory Editor session in a bad state. Unlike sim.yml,
-  # this must NOT cancel-in-progress.
-  group: real-${{ github.ref }}
+  # Serialize every ref against the same physical board. Canceling an active
+  # run could interrupt quartus_pgm/JTAG and leave the board or the In-System
+  # Memory Editor session in a bad state, so unlike sim.yml this must not use
+  # cancel-in-progress.
+  group: physical-fpga
   cancel-in-progress: false
 
 jobs:
@@ -23,6 +31,13 @@ jobs:
     # real hardware attached over JTAG, so it stays off feature
     # branches/PRs by default.
     runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
+    env:
+      # Prefer a stable /dev/serial/by-id path here if this runner exposes one.
+      UART_PORT: /dev/ttyACM0               # <<< ADJUST for the Pico/Debug Probe
+      # workflow_dispatch can coordinate feature branches across repositories;
+      # pushes to main keep testing the released dependency branches.
+      PERIPHERALS_REF: ${{ inputs.peripherals_ref || 'main' }}
+      TOPLEVEL_REF: ${{ inputs.toplevel_ref || 'main' }}
 
     steps:
       - name: Authorize manual run
@@ -43,20 +58,21 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout Core, Memory and TopLevel (the real Quartus project)
+      - name: Checkout Core, Memory, Peripherals and TopLevel
         # config.yaml extends TopLevel's platform config: quartus.project_dir is
         # "../TopLevel/platforms/internal-mem/quartus", relative to this checkout,
         # true by accident on a workstation where this repo is nested at
         # RV32IM/Tests/ (see TopLevel's docs/HARDWARE_PROGRAMMING.md). A bare CI
-        # checkout has no such parent, so clone the three next to it; the
-        # Quartus project names the core's files as ../../../../Core/... and
-        # the IPs as ../../../../Memory/ips/..., the siblings of TopLevel. This
-        # self-hosted runner's _work is not wiped between runs, so start clean.
+        # checkout has no such parent, so clone all four next to it; the
+        # Quartus project names sources under the Core, Memory and Peripherals
+        # siblings of TopLevel. This self-hosted runner's _work is not wiped
+        # between runs, so start clean.
         run: |
-          rm -rf ../Core ../Memory ../TopLevel
+          rm -rf ../Core ../Memory ../Peripherals ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
+          git clone --depth 1 --branch "$PERIPHERALS_REF" https://github.com/insper-riscv/Peripherals.git ../Peripherals
+          git clone --depth 1 --branch "$TOPLEVEL_REF" https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
@@ -127,7 +143,24 @@ jobs:
       - name: Build real test ROM images
         run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
 
-      - name: Run tests on the FPGA
+      - name: Compile and program the uart-echo baseline
+        # One full Quartus compile for the whole job. uart-echo is baked into
+        # the SOF so the dedicated harness can always start from a known state;
+        # every later program is loaded into FLASH live over JTAG.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.yaml \
+            program build/real/uart-echo.mif
+
+      - name: Run dedicated physical UART tests
+        # The preceding step has just programmed a fresh uart-echo image, so
+        # avoid programming the same SOF a second time. The harness validates
+        # uart-echo, replaces FLASH with uart-tx and uart-errors over JTAG,
+        # then validates them.
+        run: |
+          uv run python tools/riscv_build/uart_hardware_test.py \
+            --port "$UART_PORT" --skip-program
+
+      - name: Run mailbox-only tests on the FPGA
         # PYTHONUNBUFFERED: Python fully-buffers stdout when it isn't a
         # TTY (always true under Actions' log capture), so without this
         # a 40+ minute run can show a blank log the whole time even
@@ -144,4 +177,6 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: |
           set -o pipefail
-          uv run riscv-tools --config tools/riscv_build/config.yaml run | tee build/real/latest.log
+          uv run riscv-tools --config tools/riscv_build/config.yaml run \
+            --exclude uart-echo,uart-tx,uart-errors \
+            --skip-reconfigure | tee build/real/latest.log
