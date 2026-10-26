@@ -2,8 +2,8 @@
 #include "rv32_test.h"
 
 #define UART_BASE      0xC0000000u
-#define UART_DATA      (*(volatile unsigned int *)(UART_BASE + 0x00u))
-#define UART_STATUS    (*(volatile unsigned int *)(UART_BASE + 0x04u))
+#define UART_TX_DATA   (*(volatile unsigned int *)(UART_BASE + 0x00u))
+#define UART_STATUS    (*(volatile unsigned int *)(UART_BASE + 0x08u))
 #define UART_TX_READY  (1u << 1)
 
 static void uart_wait_tx_ready(void)
@@ -15,7 +15,7 @@ static void uart_wait_tx_ready(void)
 static void uart_putc(unsigned char value)
 {
     uart_wait_tx_ready();
-    UART_DATA = value;
+    UART_TX_DATA = value;
 }
 
 int main(void)
