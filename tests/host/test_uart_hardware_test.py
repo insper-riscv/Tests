@@ -20,6 +20,11 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         self.assertEqual(uart_hw.DEFAULT_PAYLOAD, b"RX test\r\n")
         self.assertEqual(len(uart_hw.DEFAULT_PAYLOAD), uart_hw.ECHO_BYTE_COUNT)
         self.assertEqual(uart_hw.UART_TX_EXPECTED, b"UART OK\r\n")
+        self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ATR")
+        self.assertEqual(uart_hw.UART_ERRORS_READY, b"OB")
+        self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, b"\x12\x34")
+        self.assertEqual(uart_hw.UART_BURST_PAYLOAD, bytes(range(32)))
+        self.assertEqual(uart_hw.UART_ERRORS_FINAL, b"P")
 
     def test_cli_defaults_to_both_uart_tests(self) -> None:
         args = uart_hw.build_parser().parse_args([])
@@ -244,18 +249,67 @@ class UartHardwareTestUnitTests(unittest.TestCase):
 
         self.assertEqual(received, uart_hw.UART_TX_EXPECTED)
 
+    def test_error_and_burst_exchange_follows_firmware_protocol(self) -> None:
+        fd = 7
+        timeout = 1.5
+        expected_final = uart_hw.UART_BURST_PAYLOAD + uart_hw.UART_ERRORS_FINAL
+        with (
+            mock.patch.object(
+                uart_hw,
+                "receive_expected",
+                side_effect=[
+                    uart_hw.UART_ERRORS_PREFIX,
+                    uart_hw.UART_ERRORS_READY,
+                    expected_final,
+                ],
+            ) as receive,
+            mock.patch.object(uart_hw, "write_all") as write,
+        ):
+            responses = uart_hw.exchange_errors_and_burst(fd, timeout)
+
+        self.assertEqual(
+            responses,
+            (
+                uart_hw.UART_ERRORS_PREFIX,
+                uart_hw.UART_ERRORS_READY,
+                expected_final,
+            ),
+        )
+        self.assertEqual(
+            receive.call_args_list,
+            [
+                mock.call(fd, uart_hw.UART_ERRORS_PREFIX, timeout, "UART TX_DROPPED"),
+                mock.call(
+                    fd,
+                    uart_hw.UART_ERRORS_READY,
+                    timeout,
+                    "UART RX_OVERRUN/W1C",
+                ),
+                mock.call(fd, expected_final, timeout, "UART burst"),
+            ],
+        )
+        self.assertEqual(
+            write.call_args_list,
+            [
+                mock.call(fd, uart_hw.UART_ERRORS_RX_INPUT, timeout),
+                mock.call(fd, uart_hw.UART_BURST_PAYLOAD, timeout),
+            ],
+        )
+
     def test_validate_artifacts_requires_matching_fresh_image(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             port = root / "ttyACM0"
             test_mif = root / "build/real/uart-echo.mif"
             tx_mif = root / "build/real/uart-tx.mif"
+            errors_mif = root / "build/real/uart-errors.mif"
             active_mif = root / "quartus/init.mif"
             sof = root / "quartus/output/core.sof"
             for path in (port, test_mif, active_mif, sof):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(b"echo-image")
             tx_mif.write_bytes(b"tx-image")
+            errors_mif.write_bytes(b"errors-image")
             now_ns = time.time_ns()
             os.utime(active_mif, ns=(now_ns, now_ns))
             os.utime(sof, ns=(now_ns + 1_000_000, now_ns + 1_000_000))
@@ -271,15 +325,28 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             artifacts = uart_hw.validate_artifacts(root, cfg, port)
             self.assertEqual(artifacts.echo_mif, test_mif)
             self.assertIsNone(artifacts.tx_mif)
+            self.assertIsNone(artifacts.errors_mif)
 
             artifacts = uart_hw.validate_artifacts(root, cfg, port, uart_hw.ALL_TESTS)
             self.assertEqual(artifacts.tx_mif, tx_mif)
+            self.assertEqual(artifacts.errors_mif, errors_mif)
 
             tx_mif.unlink()
             with self.assertRaisesRegex(
                 uart_hw.UartHardwareTestError, "compiled uart-tx MIF"
             ):
                 uart_hw.validate_artifacts(root, cfg, port, uart_hw.UART_TX_TEST)
+
+            errors_mif.unlink()
+            with self.assertRaisesRegex(
+                uart_hw.UartHardwareTestError, "compiled uart-errors MIF"
+            ):
+                uart_hw.validate_artifacts(
+                    root,
+                    cfg,
+                    port,
+                    uart_hw.UART_ERRORS_TEST,
+                )
 
             active_mif.write_bytes(b"different")
             with self.assertRaisesRegex(

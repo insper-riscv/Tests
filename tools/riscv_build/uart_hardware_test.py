@@ -4,9 +4,10 @@ The script deliberately uses only the Python standard library for the serial
 side.  It verifies that the existing Quartus bitstream was built from the
 ``uart-echo`` image, opens the Pico/Debug Probe UART in raw 115200 8N1 mode,
 reprograms that bitstream to start from a clean state, and checks the exact
-echo plus the JTAG mailbox.  It can then replace FLASH with ``uart-tx`` over
-JTAG, restart through the boot ROM, and check its exact serial output and
-mailbox result without another Quartus compile.
+echo plus the JTAG mailbox. It can then replace FLASH over JTAG with
+``uart-tx`` and ``uart-errors``, restart through the boot ROM, and validate
+TX/RX, sticky error flags, W1C clearing and a raw byte burst without another
+Quartus compile.
 """
 
 from __future__ import annotations
@@ -37,6 +38,11 @@ DEFAULT_CONFIG = REPOSITORY_ROOT / "tools/riscv_build/config.yaml"
 DEFAULT_PORT = Path("/dev/ttyACM0")
 DEFAULT_PAYLOAD = b"RX test\r\n"
 UART_TX_EXPECTED = b"UART OK\r\n"
+UART_ERRORS_PREFIX = b"ATR"
+UART_ERRORS_READY = b"OB"
+UART_ERRORS_RX_INPUT = bytes((0x12, 0x34))
+UART_BURST_PAYLOAD = bytes(range(32))
+UART_ERRORS_FINAL = b"P"
 DEFAULT_TIMEOUT_SECONDS = 2.0
 STARTUP_DELAY_SECONDS = 0.20
 QUIET_WINDOW_SECONDS = 0.10
@@ -45,6 +51,7 @@ BAUD_RATE = 115_200
 ECHO_BYTE_COUNT = 9
 UART_ECHO_TEST = "uart-echo"
 UART_TX_TEST = "uart-tx"
+UART_ERRORS_TEST = "uart-errors"
 ALL_TESTS = "all"
 
 
@@ -61,9 +68,11 @@ class Artifacts:
     sof_path: Path
     echo_mif: Path
     tx_mif: Path | None
+    errors_mif: Path | None
     active_mif: Path
     echo_mif_sha256: str
     tx_mif_sha256: str | None
+    errors_mif_sha256: str | None
 
 
 def format_bytes(payload: bytes) -> str:
@@ -115,6 +124,7 @@ def validate_artifacts(
     build_dir = root / cfg["paths"]["build_dir"]
     echo_mif = build_dir / "real/uart-echo.mif"
     tx_mif = build_dir / "real/uart-tx.mif"
+    errors_mif = build_dir / "real/uart-errors.mif"
     project_dir = (root / cfg["quartus"]["project_dir"]).resolve()
     active_mif = project_dir / cfg["quartus"]["rom_mif_target"]
     sof_file = cfg["quartus"]["sof_file"]
@@ -125,6 +135,10 @@ def validate_artifacts(
         _required_file(tx_mif, "compiled uart-tx MIF")
     else:
         tx_mif = None
+    if selected_test in (UART_ERRORS_TEST, ALL_TESTS):
+        _required_file(errors_mif, "compiled uart-errors MIF")
+    else:
+        errors_mif = None
     _required_file(active_mif, "Quartus active MIF")
     _required_file(sof_path, "Quartus SOF")
 
@@ -145,11 +159,17 @@ def validate_artifacts(
         sof_path=sof_path,
         echo_mif=echo_mif,
         tx_mif=tx_mif,
+        errors_mif=errors_mif,
         active_mif=active_mif,
         echo_mif_sha256=hashlib.sha256(echo_image).hexdigest(),
         tx_mif_sha256=(
             hashlib.sha256(tx_mif.read_bytes()).hexdigest()
             if tx_mif is not None
+            else None
+        ),
+        errors_mif_sha256=(
+            hashlib.sha256(errors_mif.read_bytes()).hexdigest()
+            if errors_mif is not None
             else None
         ),
     )
@@ -326,6 +346,36 @@ def receive_expected(
     return received
 
 
+def exchange_errors_and_burst(
+    fd: int,
+    timeout_s: float,
+) -> tuple[bytes, bytes, bytes]:
+    """Run the uart-errors serial protocol and return its three responses."""
+    prefix = receive_expected(
+        fd,
+        UART_ERRORS_PREFIX,
+        timeout_s,
+        "UART TX_DROPPED",
+    )
+
+    write_all(fd, UART_ERRORS_RX_INPUT, timeout_s)
+    ready = receive_expected(
+        fd,
+        UART_ERRORS_READY,
+        timeout_s,
+        "UART RX_OVERRUN/W1C",
+    )
+
+    write_all(fd, UART_BURST_PAYLOAD, timeout_s)
+    burst_and_final = receive_expected(
+        fd,
+        UART_BURST_PAYLOAD + UART_ERRORS_FINAL,
+        timeout_s,
+        "UART burst",
+    )
+    return prefix, ready, burst_and_final
+
+
 def read_result_mailbox(link: JtagLink, cfg: dict[str, Any]) -> int:
     """Read the project's PASS/FAIL word once after the serial exchange."""
     return mailbox.read_mailbox(
@@ -374,8 +424,8 @@ def load_and_start_firmware(
     """Replace both FLASH copies and restart a core parked in boot ROM."""
     rom_writer.write_rom(link, cfg["quartus"]["rom_mem_instances"], mif_path)
 
-    # Flush before the restart pulse. uart-tx may send every byte while
-    # quartus_stp is still returning, so never flush afterward.
+    # Flush before the restart pulse. A UART firmware may start transmitting
+    # while quartus_stp is still returning, so never flush afterward.
     termios.tcflush(fd, termios.TCIFLUSH)
     mailbox.pulse_go_flag(
         link,
@@ -401,6 +451,11 @@ def run_hardware_test(args: argparse.Namespace) -> None:
         print(
             f"  uart-tx MIF: {artifacts.tx_mif}\n"
             f"  uart-tx SHA256: {artifacts.tx_mif_sha256}"
+        )
+    if artifacts.errors_mif is not None:
+        print(
+            f"  uart-errors MIF: {artifacts.errors_mif}\n"
+            f"  uart-errors SHA256: {artifacts.errors_mif_sha256}"
         )
 
     with serial_session(args.port) as fd:
@@ -456,6 +511,38 @@ def run_hardware_test(args: argparse.Namespace) -> None:
             print(f"uart-tx MAILBOX={tx_mailbox}: PASS")
             completed_tests.append(UART_TX_TEST)
 
+        if args.test in (UART_ERRORS_TEST, ALL_TESTS):
+            if artifacts.errors_mif is None:
+                raise UartHardwareTestError(
+                    "uart-errors was selected without a validated uart-errors MIF"
+                )
+            print(f"Loading {UART_ERRORS_TEST} through JTAG...")
+            load_and_start_firmware(fd, link, cfg, artifacts.errors_mif)
+            prefix, ready, burst_and_final = exchange_errors_and_burst(
+                fd,
+                args.timeout,
+            )
+            print(f"RX[{len(prefix)}] TX_DROPPED/W1C: {format_bytes(prefix)}")
+            print(
+                f"TX[{len(UART_ERRORS_RX_INPUT)}] RX_OVERRUN stimulus: "
+                f"{format_bytes(UART_ERRORS_RX_INPUT)}"
+            )
+            print(f"RX[{len(ready)}] RX_OVERRUN/W1C: {format_bytes(ready)}")
+            print(
+                f"TX[{len(UART_BURST_PAYLOAD)}] burst: "
+                f"{format_bytes(UART_BURST_PAYLOAD)}"
+            )
+            print(
+                f"RX[{len(burst_and_final)}] burst + PASS marker: "
+                f"{format_bytes(burst_and_final)}"
+            )
+            print("UART ERRORS, W1C AND BURST: PASS")
+
+            errors_mailbox = wait_for_result_mailbox(link, cfg, args.timeout)
+            validate_mailbox(errors_mailbox)
+            print(f"uart-errors MAILBOX={errors_mailbox}: PASS")
+            completed_tests.append(UART_ERRORS_TEST)
+
     print(f"INTEGRATED UART HARDWARE TEST: PASS ({', '.join(completed_tests)})")
 
 
@@ -463,8 +550,8 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser."""
     parser = argparse.ArgumentParser(
         description=(
-            "Validate uart-echo and uart-tx on the physical UART plus the "
-            "RV32 PASS mailbox. Close picocom before running."
+            "Validate uart-echo, uart-tx and uart-errors on the physical UART "
+            "plus the RV32 PASS mailbox. Close picocom before running."
         )
     )
     parser.add_argument("--port", type=Path, default=DEFAULT_PORT)
@@ -472,11 +559,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
     parser.add_argument(
         "--test",
-        choices=(ALL_TESTS, UART_ECHO_TEST, UART_TX_TEST),
+        choices=(ALL_TESTS, UART_ECHO_TEST, UART_TX_TEST, UART_ERRORS_TEST),
         default=ALL_TESTS,
         help=(
-            "test to validate (default: all); uart-tx still runs the baked-in "
-            "uart-echo first so the core reaches its safe restart loop"
+            "test to validate (default: all); every selection first runs the "
+            "baked-in uart-echo so the core reaches its safe restart loop"
         ),
     )
     parser.add_argument(

@@ -16,7 +16,7 @@ peças (só GHDL e a extra `sim` do `riscv-tools`).
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `asm/`, `c/` | Os 91 testes da suíte (52 em assembly, 39 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm/`, `c/` | Os 92 testes da suíte (52 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
 | `tools/riscv_build/` | Configuração deste projeto pro `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`): estende a da plataforma, que está no [TopLevel](https://github.com/insper-riscv/TopLevel) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tools/Tools/` | Submódulo do pacote [`riscv-tools`](tools/Tools/README.md) |
 | `tests/host/` | Testes unitários do harness de UART física, sem precisar da placa |
@@ -31,13 +31,13 @@ uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   # hardware real
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulação
 uv run python -m unittest discover -s tests/host -v                            # harness UART, sem placa
-uv run riscv-tools --config tools/riscv_build/config.yaml sim --exclude uart-echo,uart-tx
+uv run riscv-tools --config tools/riscv_build/config.yaml sim --exclude uart-echo,uart-tx,uart-errors
 
 # hardware real: uma síntese, UART física dedicada, depois mailbox/JTAG
 uv run riscv-tools --config tools/riscv_build/config.yaml program build/real/uart-echo.mif
 uv run python tools/riscv_build/uart_hardware_test.py --skip-program
 uv run riscv-tools --config tools/riscv_build/config.yaml run \
-  --exclude uart-echo,uart-tx --skip-reconfigure
+  --exclude uart-echo,uart-tx,uart-errors --skip-reconfigure
 uv run riscv-tools --root ../TopLevel check-memory-map --platform platforms/internal-mem/platform.yaml   # mapa de memória (no TopLevel)
 ```
 
