@@ -147,11 +147,15 @@ uv sync
 # real (needs Quartus + a board on JTAG)
 uv run riscv-tools --config tools/riscv_build/config.yaml generate-header  # once, or after changing mailbox_addr
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
-uv run riscv-tools --config tools/riscv_build/config.yaml run
+uv run riscv-tools --config tools/riscv_build/config.yaml program build/real/uart-echo.mif
+uv run python tools/riscv_build/uart_hardware_test.py --skip-program
+uv run riscv-tools --config tools/riscv_build/config.yaml run \
+  --exclude uart-echo,uart-tx --skip-reconfigure
 
 # sim (needs GHDL; cocotb/cocotb-tools already come from riscv-tools[sim])
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
-uv run riscv-tools --config tools/riscv_build/config.yaml sim
+uv run riscv-tools --config tools/riscv_build/config.yaml sim \
+  --exclude uart-echo,uart-tx
 
 # per-entity VHDL unit tests (ALU, RAM, control_unit, ...): see tests/python/README.md
 uv run python tests/python/runner.py          # all of them
@@ -164,6 +168,61 @@ uv run python tests/python/runner.py ALU      # just one
 attach a `memory`-kind test's `golden.json` to its manifest entry,
 which `run`/`sim` then consume.
 
+## Integrated UART hardware check
+
+The normal JTAG/mailbox-only `riscv-tools run` flow cannot validate the UART
+tests by itself: `uart-echo` needs external serial traffic, while `uart-tx`
+can report mailbox PASS without proving that the expected bytes reached the
+physical pin. After compiling Quartus with `build/real/uart-echo.mif`, close
+`picocom`, connect the Pico/Debug Probe UART, and run:
+
+```bash
+uv run python tools/riscv_build/uart_hardware_test.py --port /dev/ttyACM0
+```
+
+By default the harness validates both programs. As a consistency guard, it
+checks that `quartus/init.mif` is byte-for-byte identical to the compiled
+`uart-echo.mif` and that the `.sof` is newer. It then:
+
+1. opens the serial port in raw 115200 8N1 and reprograms the existing `.sof`;
+2. sends `RX test\r\n`, requires the exact nine-byte echo and `MAILBOX=1`;
+3. replaces both FLASH copies with `uart-tx.mif` over JTAG and restarts through
+   the boot ROM; and
+4. requires the exact `UART OK\r\n` output and a new `MAILBOX=1`.
+
+Running the baked-in echo first is intentional: it leaves the CPU parked in
+the boot ROM, where replacing FLASH for `uart-tx` is safe. Reprogramming first
+makes the whole sequence repeatable on every invocation. Individual selection
+is available for diagnostics:
+
+```bash
+uv run python tools/riscv_build/uart_hardware_test.py --test uart-echo
+uv run python tools/riscv_build/uart_hardware_test.py --test uart-tx
+```
+
+The `uart-tx` selection still performs the echo bootstrap before replacing
+FLASH; `all` is the default and reports both checks explicitly.
+
+To exercise arbitrary echo data while keeping the firmware's fixed length:
+
+```bash
+uv run python tools/riscv_build/uart_hardware_test.py \
+  --payload-hex "00 55 aa 0d 0a 7f 80 fe ff"
+```
+
+`--skip-program` exists only for debugging immediately after a manual FPGA
+programming, before any byte has reached `uart-echo`; it is not suitable after
+the firmware has already written PASS. The real-hardware workflow uses it only
+because its immediately preceding step has just compiled and programmed the
+`uart-echo` baseline.
+
+The serial framing, exact-byte validation, timeout handling, artifact guards,
+and JTAG restart ordering have host-only tests that need no board:
+
+```bash
+uv run python -m unittest discover -s tests/host -v
+```
+
 ## CI
 
 Each suite has its own workflow file:
@@ -171,11 +230,22 @@ Each suite has its own workflow file:
 - [`.github/workflows/sim.yml`](../../.github/workflows/sim.yml):
   runs on any push/PR/branch, on a standard GitHub-hosted runner
   (`ghdl/ghdl:6.0.0-mcode-ubuntu-24.04`, no license needed). Also
-  triggerable manually via **Actions → sim tests → Run workflow**.
+  triggerable manually via **Actions → sim tests → Run workflow**. Its generic
+  top has no UART pins, so it excludes `uart-echo` and `uart-tx` explicitly,
+  while still running the host-side unit tests for the physical UART harness.
 - [`.github/workflows/real.yml`](../../.github/workflows/real.yml):
   only on `main`, or on demand via **Actions → real tests (FPGA) → Run
   workflow**. Needs a self-hosted runner with Quartus and a board
-  attached.
+  attached. It compiles one `uart-echo` baseline, runs both physical UART
+  tests through the dedicated harness, then runs the remaining mailbox-only
+  suite without another Quartus compile.
+- [`.github/workflows/sim-fpga.yml`](../../.github/workflows/sim-fpga.yml):
+  runs the complete manifest, including both UART programs, against the real
+  hardware top and Quartus memory models on the self-hosted runner.
+
+The manual `real` and `sim-fpga` forms accept independent Peripherals and
+TopLevel branch/tag inputs. Keep both at `main` after the dependency changes
+are merged; while validating this feature beforehand, select `UART` for both.
 
 Both check out submodules recursively (`tools/Tools`) and set up `uv` the same
 way local dev does above. The ACT4 certification lives in
@@ -266,7 +336,7 @@ FAIL test, see above). What's still open:
 
 | File | What |
 |---|---|
-| `.github/workflows/real.yml` | `riscv32-elf-ubuntu-22.04-gcc.tar.xz` asset name and `/opt/altera_lite/...` PATH, if this ever moves to a different/newer runner OS or a different Quartus install location |
+| `.github/workflows/real.yml` | Toolchain asset/install paths if the runner OS or Quartus installation changes; `UART_PORT` if the Pico/Debug Probe is not `/dev/ttyACM0` |
 
 ---
 

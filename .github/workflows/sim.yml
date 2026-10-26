@@ -43,6 +43,9 @@ jobs:
       - name: Install Python dependencies (riscv-tools, editable from tools/Tools, + its sim extra)
         run: uv sync
 
+      - name: Run host-side UART harness tests
+        run: uv run python -m unittest discover -s tests/host -v
+
       - name: Generate rv32_test.h
         run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 
@@ -57,7 +60,11 @@ jobs:
         run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
 
       - name: Run sim tests
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml sim
+        # The default simulation top has no physical UART pins. The two UART
+        # programs run in sim-fpga.yml against core_fpga_test instead.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.yaml sim \
+            --exclude uart-echo,uart-tx
 
       - name: Run per-entity VHDL unit tests (tests/python/)
         run: uv run python tests/python/runner.py
