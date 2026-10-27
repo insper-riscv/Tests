@@ -74,6 +74,23 @@ jobs:
           git clone --depth 1 --branch "$PERIPHERALS_REF" https://github.com/insper-riscv/Peripherals.git ../Peripherals
           git clone --depth 1 --branch "$TOPLEVEL_REF" https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
+      - name: Check the Quartus project reads VHDL-2008
+        # The core uses VHDL-2008 (e.g. `else generate` in the HAS_M selection), and
+        # GHDL's --std=08 in the other workflows hides a Quartus project that still
+        # reads VHDL-1993: only the several-minute synthesis would fail, with
+        # "elsif or else statement inside a generate statement is not supported in
+        # VHDL_1993". Fail in seconds instead, and keep every VHDL file the core
+        # instantiates in the project (m_decode.vhd was once missing).
+        run: |
+          qsf=../TopLevel/platforms/internal-mem/quartus/core_fpga_test.qsf
+          if ! grep -Eq '^set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008' "$qsf"; then
+            echo "::error::$qsf does not set VHDL_INPUT_VERSION VHDL_2008; Quartus would read the core as VHDL-1993 and fail in synthesis"
+            exit 1
+          fi
+          for f in ../Core/common/*.vhd ../Core/I/*.vhd ../Core/M/m_decode.vhd; do
+            grep -q "Core/${f#../Core/}" "$qsf" || { echo "::error::$f is not in $qsf"; exit 1; }
+          done
+
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
         # runner. Reached via /opt/altera_lite (a bind mount of
@@ -121,7 +138,8 @@ jobs:
 
       - uses: astral-sh/setup-uv@v10.0.1
 
-      - name: Install Python dependencies (riscv-tools, editable from tools/Tools)
+      - name: Install Python dependencies for the board run (riscv-tools, editable from tools/Tools)
+        # On the runner itself: this step talks to Quartus and the JTAG cable.
         run: uv sync
 
       - name: Generate rv32_test.h
