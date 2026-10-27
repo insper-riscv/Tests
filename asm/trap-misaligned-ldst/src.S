@@ -1,8 +1,10 @@
 // RV32_EXT: M,Zicsr
 // RV32_TEST_KIND: memory
 //
-// Misaligned lw/lh/lhu and sw/sh trap (mcause 4 and 6, mtval = the effective address);
-// the load does not write rd and the store does not reach the memory.
+// Misaligned accesses that cross a word (lw at offsets 1 to 3, lh and lhu at 3, sw at 2, sh at 3)
+// trap (mcause 4 and 6, mtval = the effective address); the load does not write rd and the
+// store does not reach the memory. A halfword at offset 1 stays inside a word and runs, so it is
+// not one of the cases here.
 #include "rv32_platform.h"
 
     .section .text
@@ -25,7 +27,7 @@ site_lw:
     lw   x6, 1(x14)
     la   x21, site_lh
 site_lh:
-    lh   x7, 1(x14)
+    lh   x7, 3(x14)
     la   x22, site_lhu
 site_lhu:
     lhu  x8, 3(x14)
@@ -34,7 +36,7 @@ site_sw:
     sw   x15, 2(x14)
     la   x24, site_sh
 site_sh:
-    sh   x15, 1(x14)
+    sh   x15, 3(x14)
     lw   x9, 0(x14)               # neither store reached the memory
     lh   x16, 2(x14)              # aligned accesses still work
     lb   x17, 1(x14)
