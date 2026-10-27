@@ -138,10 +138,14 @@ jobs:
         run: uv sync
 
       - name: Generate rv32_test.h
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
+        run: uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
 
       - name: Build real test ROM images
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
+        # The board runs the SDRAM platform (the SDRAM is the RAM; the host reaches it through the
+        # JTAG debug port): the existing programs, then the ones that use the SDRAM.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit mif
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit mif
 
       - name: Compile and program the uart-echo baseline
         # One full Quartus compile for the whole job. uart-echo is baked into
