@@ -13,13 +13,12 @@ jobs:
   test-sim:
     # Needs no hardware and no Quartus license (GHDL is open source), so
     # it runs on a GitHub-hosted runner, independent of any workstation.
-    # The image is insper-riscv/Infra's toolchain image (docs/en/
-    # TOOLCHAIN_IMAGE.md there): GHDL, the RISC-V GCC with picolibc, Spike
+    # The image is the ci-asm image of insper-riscv/Infra: GHDL, the RISC-V GCC with picolibc, Spike
     # and uv already on PATH, so nothing is built or installed here. It is
     # the latest publication; to pin one, use its sha- tag.
     runs-on: ubuntu-26.04
     container:
-      image: ghcr.io/insper-riscv/infra-toolchain:latest
+      image: ghcr.io/insper-riscv/ci-asm:latest
 
     steps:
       - uses: actions/checkout@v7

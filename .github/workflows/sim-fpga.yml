@@ -4,7 +4,7 @@ name: sim tests (hardware top)
 # Quartus memory IP on Intel's simulation models, see
 # docs/SIMULACAO_TOPO_FPGA.md. No FPGA is touched, but the IP's simulation
 # library (altera_mf) ships with Quartus, so it runs on the self-hosted
-# runner that has Quartus, in the toolchain image, with Quartus mounted
+# runner that has Quartus, in the ci-asm image, with Quartus mounted
 # read-only. Manual only until it has run once on that runner.
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
   test-sim-fpga:
     runs-on: [self-hosted, quartus]
     container:
-      image: ghcr.io/insper-riscv/infra-toolchain:latest
+      image: ghcr.io/insper-riscv/ci-asm:latest
       # /opt/altera_lite is the runner's bind mount of the Quartus
       # install (see real.yml's "Add Quartus to PATH").
       volumes:
