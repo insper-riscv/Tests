@@ -8,7 +8,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 pins="$here/.github/sibling-branches"
 
-for repo in Core Memory TopLevel; do
+for repo in Core Common-Components Memory TopLevel; do
   branch=main
   if [ -f "$pins" ]; then
     pinned="$(sed -n "s/^$repo=//p" "$pins" | head -n 1)"

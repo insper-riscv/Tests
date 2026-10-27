@@ -61,8 +61,9 @@ jobs:
         # and IPs, ../Peripherals includes the UART, and ../TopLevel is the
         # platform (see sim.yml and real.yml).
         run: |
-          rm -rf ../Core ../Memory ../Peripherals ../TopLevel
+          rm -rf ../Core ../Common-Components ../Memory ../Peripherals ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
+          git clone --depth 1 https://github.com/insper-riscv/Common-Components.git ../Common-Components
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
           git clone --depth 1 --branch "$PERIPHERALS_REF" https://github.com/insper-riscv/Peripherals.git ../Peripherals
           git clone --depth 1 --branch "$TOPLEVEL_REF" https://github.com/insper-riscv/TopLevel.git ../TopLevel
