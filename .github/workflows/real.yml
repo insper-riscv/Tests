@@ -27,8 +27,8 @@ concurrency:
 
 jobs:
   test-real:
-    # Only runs on main (or on demand) — needs licensed Quartus and
-    # real hardware attached over JTAG, so it stays off feature
+    # Only runs on main (or on demand) — needs Quartus and the
+    # board attached over JTAG, so it stays off feature
     # branches/PRs by default.
     runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
     env:
@@ -112,25 +112,12 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Check the RISC-V toolchain (installed by insper-riscv/Infra)
-        # The GCC (with picolibc) and the patched Spike live in the
-        # workstation's shared cache, /opt/riscv-foundation, with wrappers
-        # in /usr/local/bin: Infra's GCC_SETUP.md and SPIKE_SETUP.md
-        # install them, and this workflow builds and downloads nothing.
-        # config.yaml links tests against picolibc, so fail here, with a
-        # pointer, if this runner lacks it.
-        run: |
-          # Captured in variables: `cmd | head -1` under pipefail (the
-          # default for `bash` here) fails with SIGPIPE when the command
-          # has more output than the first line, as spike --help does.
-          gcc_version=$(riscv32-unknown-elf-gcc --version)
-          echo "${gcc_version%%$'\n'*}"
-          if ! riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; then
-            echo "::error::riscv32-unknown-elf-gcc has no picolibc; install the toolchain as in insper-riscv/Infra's GCC_SETUP.md"
-            exit 1
-          fi
-          spike_help=$(spike --help 2>&1 || true)
-          echo "${spike_help%%$'\n'*}"
+      - name: Pull the toolchain image
+        # Everything but Quartus and the board runs in Insper/Infra's toolchain image (GHDL, the RISC-V
+        # GCC with picolibc, Spike, uv, Python and cocotb): the workstation provides nothing else, so a
+        # run does not depend on what is installed on it. `latest` is the last publication; to pin
+        # one, use its sha- tag.
+        run: docker pull "$IMAGE"
 
       - uses: astral-sh/setup-uv@v10.0.1
 
@@ -173,10 +160,13 @@ jobs:
         # used for local `tail -f`), so a run kicked off by CI is
         # watchable the same way as a local one, from the runner itself.
         #
-        # set -o pipefail: this shell (`bash -e {0}`, Actions' default)
-        # does NOT set pipefail on its own — without it, `cmd | tee`
-        # always exits 0 (tee's own exit code), so a failing test suite
-        # would silently show this step as green.
+        # What the host lends it: Quartus (read-only) and the JTAG server of the host (jtagd) through
+        # the host network; the USB-Blaster is not passed into the container. The run is the invoking
+        # user's (--user) so the files it writes belong to the runner; --userns=host keeps that valid
+        # on a Docker daemon that remaps users, and does nothing on one that does not.
+        #
+        # The checkout is the working directory; its parent is mounted too because the sibling
+        # repositories (Core, Memory, TopLevel) are cloned next to it.
         env:
           PYTHONUNBUFFERED: "1"
         run: |
