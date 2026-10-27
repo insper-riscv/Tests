@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs inside Insper/Infra's ci-asm image (see .github/workflows/real.yml): clones the sibling
+# Runs inside Insper/Infra's ci-elf image (see .github/workflows/real.yml): clones the sibling
 # repositories, builds the ROM images and goldens, and runs the suite on the FPGA. Quartus is the
 # host's, mounted read-only at $QUARTUS_ROOT, and the board is reached through the host's jtagd.
 set -euo pipefail

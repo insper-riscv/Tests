@@ -33,7 +33,7 @@ jobs:
     runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
     env:
       # the image with GHDL, the RISC-V GCC, Spike and uv that the toolchain steps use
-      IMAGE: ghcr.io/insper-riscv/ci-asm:latest
+      IMAGE: ghcr.io/insper-riscv/ci-elf:latest
       # Prefer a stable /dev/serial/by-id path here if this runner exposes one.
       UART_PORT: /dev/ttyACM0               # <<< ADJUST for the Pico/Debug Probe
       # workflow_dispatch can coordinate feature branches across repositories;
@@ -132,8 +132,8 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Pull the ci-asm image
-        # Everything but Quartus and the board runs in Insper/Infra's ci-asm image (GHDL, the RISC-V
+      - name: Pull the ci-elf image
+        # Everything but Quartus and the board runs in Insper/Infra's ci-elf image (GHDL, the RISC-V
         # GCC with picolibc, Spike, uv, Python and cocotb): the workstation provides nothing else, so a
         # run does not depend on what is installed on it. `latest` is the last publication; to pin
         # one, use its sha- tag.
