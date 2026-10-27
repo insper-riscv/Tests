@@ -12,6 +12,14 @@ on:
       confirm:
         description: "Repo secret FPGA_RUN_SECRET's value, to confirm you're allowed to run this on the self-hosted runner"
         required: true
+      peripherals_ref:
+        description: "Peripherals branch/tag to test (use UART before that branch is merged)"
+        required: true
+        default: main
+      toplevel_ref:
+        description: "TopLevel branch/tag to test (use UART before that branch is merged)"
+        required: true
+        default: main
 
 concurrency:
   group: sim-fpga-${{ github.ref }}
@@ -29,6 +37,8 @@ jobs:
     env:
       # altera_mf_components.vhd and altera_mf.vhd are under eda/sim_lib.
       QUARTUS_ROOTDIR: /opt/altera_lite/25.1std/quartus
+      PERIPHERALS_REF: ${{ inputs.peripherals_ref || 'main' }}
+      TOPLEVEL_REF: ${{ inputs.toplevel_ref || 'main' }}
 
     steps:
       - name: Authorize manual run
@@ -45,15 +55,17 @@ jobs:
         with:
           submodules: true
 
-      - name: Checkout Core, Memory and TopLevel (VHDL sources and the Quartus project)
+      - name: Checkout Core, Memory, Peripherals and TopLevel
         # config.fpga-sim.yaml's paths are relative to a checkout with the
         # repositories side by side: ../Core is the core, ../Memory the memories
-        # and IPs, ../TopLevel the platform (see sim.yml and real.yml).
+        # and IPs, ../Peripherals includes the UART, and ../TopLevel is the
+        # platform (see sim.yml and real.yml).
         run: |
-          rm -rf ../Core ../Memory ../TopLevel
+          rm -rf ../Core ../Memory ../Peripherals ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
-          git clone --depth 1 https://github.com/insper-riscv/TopLevel.git ../TopLevel
+          git clone --depth 1 --branch "$PERIPHERALS_REF" https://github.com/insper-riscv/Peripherals.git ../Peripherals
+          git clone --depth 1 --branch "$TOPLEVEL_REF" https://github.com/insper-riscv/TopLevel.git ../TopLevel
 
       - name: Check the Quartus simulation library
         run: ls "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf.vhd "$QUARTUS_ROOTDIR"/eda/sim_lib/altera_mf_components.vhd
