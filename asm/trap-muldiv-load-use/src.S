@@ -1,8 +1,9 @@
 // RV32_EXT: M,Zicsr
 // RV32_TEST_KIND: memory
 //
-// Traps right behind a division and a multiplication and a misaligned load whose result is
-// used by the next instruction (the load-use stall must not hold the redirect).
+// Traps right behind a division and a multiplication and a misaligned load (from the flash
+// window, outside the main memory) whose result is used by the next instruction (the load-use
+// stall must not hold the redirect).
 #include "rv32_platform.h"
 
     .section .text
@@ -13,7 +14,7 @@ main:
     addi x27, x5, 0x200           # trap log: cause, mepc, mtval, mstatus per trap
     la   x6, handler
     csrw mtvec, x6
-    addi x13, x5, 0x300
+    li   x13, 0x1000              # flash window: a misaligned load there traps
     li   x7, 100
     li   x8, 7
     li   x11, 4369

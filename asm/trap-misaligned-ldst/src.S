@@ -1,10 +1,10 @@
 // RV32_EXT: M,Zicsr
 // RV32_TEST_KIND: memory
 //
-// Misaligned accesses that cross a word (lw at offsets 1 to 3, lh and lhu at 3, sw at 2, sh at 3)
-// trap (mcause 4 and 6, mtval = the effective address); the load does not write rd and the
-// store does not reach the memory. A halfword at offset 1 stays inside a word and runs, so it is
-// not one of the cases here.
+// Misaligned accesses outside the main memory trap (mcause 4 and 6, mtval = the effective
+// address): loads from the flash window (lw at offset 1, lh and lhu at 3) and stores to the
+// peripheral window (sw at 2, sh at 3). The load does not write rd and the store does not reach
+// the bus. The same accesses to the RAM run in two steps instead (see misaligned-crossing).
 #include "rv32_platform.h"
 
     .section .text
@@ -22,22 +22,24 @@ main:
     li   x7, 4369
     li   x8, 4369
     li   x15, 0xDEADBEEF
+    li   x25, 0x1000              # inside the flash window: the loads trap
+    li   x26, 0x80000000          # peripheral window: the stores trap
     la   x20, site_lw
 site_lw:
-    lw   x6, 1(x14)
+    lw   x6, 1(x25)
     la   x21, site_lh
 site_lh:
-    lh   x7, 3(x14)
+    lh   x7, 3(x25)
     la   x22, site_lhu
 site_lhu:
-    lhu  x8, 3(x14)
+    lhu  x8, 3(x25)
     la   x23, site_sw
 site_sw:
-    sw   x15, 2(x14)
+    sw   x15, 2(x26)
     la   x24, site_sh
 site_sh:
-    sh   x15, 3(x14)
-    lw   x9, 0(x14)               # neither store reached the memory
+    sh   x15, 3(x26)
+    lw   x9, 0(x14)               # the RAM word is untouched
     lh   x16, 2(x14)              # aligned accesses still work
     lb   x17, 1(x14)
     sw   x0, 4(x14)
@@ -50,7 +52,7 @@ site_sh:
     sub  x12, x12, x20
     sw   x12, 4(x5)
     lw   x12, 520(x5)
-    sub  x12, x12, x14
+    sub  x12, x12, x25
     sw   x12, 8(x5)
     lw   x12, 528(x5)
     sw   x12, 12(x5)
@@ -58,7 +60,7 @@ site_sh:
     sub  x12, x12, x21
     sw   x12, 16(x5)
     lw   x12, 536(x5)
-    sub  x12, x12, x14
+    sub  x12, x12, x25
     sw   x12, 20(x5)
     lw   x12, 544(x5)
     sw   x12, 24(x5)
@@ -66,7 +68,7 @@ site_sh:
     sub  x12, x12, x22
     sw   x12, 28(x5)
     lw   x12, 552(x5)
-    sub  x12, x12, x14
+    sub  x12, x12, x25
     sw   x12, 32(x5)
     lw   x12, 560(x5)
     sw   x12, 36(x5)
@@ -74,7 +76,7 @@ site_sh:
     sub  x12, x12, x23
     sw   x12, 40(x5)
     lw   x12, 568(x5)
-    sub  x12, x12, x14
+    sub  x12, x12, x26
     sw   x12, 44(x5)
     lw   x12, 576(x5)
     sw   x12, 48(x5)
@@ -82,7 +84,7 @@ site_sh:
     sub  x12, x12, x24
     sw   x12, 52(x5)
     lw   x12, 584(x5)
-    sub  x12, x12, x14
+    sub  x12, x12, x26
     sw   x12, 56(x5)
     mv   x12, x6
     sw   x12, 60(x5)
