@@ -20,7 +20,7 @@ static void uart_putc(unsigned char value)
 
 int main(void)
 {
-    static const char message[] = "UART OK\r\n";
+    static const char message[] = "Hello, world!\r\n";
 
     for (unsigned int i = 0; message[i] != '\0'; ++i) {
         uart_putc((unsigned char)message[i]);

@@ -154,8 +154,7 @@ uv run riscv-tools --config tools/riscv_build/config.yaml run \
 
 # sim (needs GHDL; cocotb/cocotb-tools already come from riscv-tools[sim])
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
-uv run riscv-tools --config tools/riscv_build/config.yaml sim \
-  --exclude uart-echo,uart-tx,uart-errors
+uv run riscv-tools --config tools/riscv_build/config.yaml sim
 
 # per-entity VHDL unit tests (ALU, RAM, control_unit, ...): see tests/python/README.md
 uv run python tests/python/runner.py          # all of them
@@ -188,7 +187,8 @@ checks that `quartus/init.mif` is byte-for-byte identical to the compiled
 1. opens the serial port in raw 115200 8N1 and reprograms the existing `.sof`;
 2. sends `RX test\r\n`, requires the exact nine-byte echo and `MAILBOX=1`;
 3. replaces both FLASH copies with `uart-tx.mif` over JTAG, restarts through
-   the boot ROM, and requires the exact `UART OK\r\n` output plus `MAILBOX=1`;
+   the boot ROM, and requires the exact `Hello, world!\r\n` output plus
+   `MAILBOX=1`;
 4. loads `uart-errors.mif`, intentionally writes while TX is busy and requires
    the exact `ATR` response, proving that the second byte was dropped and that
    `TX_DROPPED` was set and cleared through W1C;
@@ -239,9 +239,12 @@ Each suite has its own workflow file:
   runs on any push/PR/branch, on a standard GitHub-hosted runner
   (`ghdl/ghdl:6.0.0-mcode-ubuntu-24.04`, no license needed). Also
   triggerable manually via **Actions → sim tests → Run workflow**. Its generic
-  top has no UART pins, so it excludes `uart-echo`, `uart-tx` and `uart-errors`
-  explicitly, while still running the host-side unit tests for the physical
-  UART harness.
+  top instantiates the UART, so `uart-tx`, `uart-echo` and `uart-errors` run in
+  the normal suite beside the other programs. Cocotb decodes the serial 8N1 output,
+  requires exactly `Hello, world!\r\n` from `uart-tx`, injects `RX test\r\n`
+  into `uart-echo` and requires the same bytes back, then validates the error
+  flags, W1C behavior and 32-byte burst protocol with `uart-errors`. The
+  workflow also runs the host-side unit tests for the physical UART harness.
 - [`.github/workflows/real.yml`](../../.github/workflows/real.yml):
   only on `main`, or on demand via **Actions → real tests (FPGA) → Run
   workflow**. Needs a self-hosted runner with Quartus and a board
