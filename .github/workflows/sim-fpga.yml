@@ -29,7 +29,7 @@ jobs:
   test-sim-fpga:
     runs-on: [self-hosted, quartus]
     container:
-      image: ghcr.io/insper-riscv/infra-toolchain:latest
+      image: ghcr.io/insper-riscv/ci-elf:latest
       # /opt/altera_lite is the runner's bind mount of the Quartus
       # install (see real.yml's "Add Quartus to PATH").
       volumes:
