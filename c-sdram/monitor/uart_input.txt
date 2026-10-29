@@ -1,0 +1,17 @@
+help
+peek 40000000
+poke 40100000 00100513
+poke 40100004 00008067
+run 40100000
+poke 40100008 1234abcd
+dump 40100008 1
+dump 40100000 3
+status
+peek 40000001
+frob
+poke 40100008
+peek zz
+run 40100000 40100000 4
+
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+quit

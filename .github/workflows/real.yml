@@ -27,11 +27,13 @@ concurrency:
 
 jobs:
   test-real:
-    # Only runs on main (or on demand) — needs licensed Quartus and
-    # real hardware attached over JTAG, so it stays off feature
+    # Only runs on main (or on demand) — needs Quartus and the
+    # board attached over JTAG, so it stays off feature
     # branches/PRs by default.
     runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
     env:
+      # the image with GHDL, the RISC-V GCC, Spike and uv that the toolchain steps use
+      IMAGE: ghcr.io/insper-riscv/ci-elf:latest
       # Prefer a stable /dev/serial/by-id path here if this runner exposes one.
       UART_PORT: /dev/ttyACM0               # <<< ADJUST for the Pico/Debug Probe
       # workflow_dispatch can coordinate feature branches across repositories;
@@ -68,11 +70,29 @@ jobs:
         # siblings of TopLevel. This self-hosted runner's _work is not wiped
         # between runs, so start clean.
         run: |
-          rm -rf ../Core ../Memory ../Peripherals ../TopLevel
+          rm -rf ../Core ../Common-Components ../Memory ../Peripherals ../TopLevel
           git clone --depth 1 https://github.com/insper-riscv/Core.git ../Core
+          git clone --depth 1 https://github.com/insper-riscv/Common-Components.git ../Common-Components
           git clone --depth 1 https://github.com/insper-riscv/Memory.git ../Memory
           git clone --depth 1 --branch "$PERIPHERALS_REF" https://github.com/insper-riscv/Peripherals.git ../Peripherals
           git clone --depth 1 --branch "$TOPLEVEL_REF" https://github.com/insper-riscv/TopLevel.git ../TopLevel
+
+      - name: Check the Quartus project reads VHDL-2008
+        # The core uses VHDL-2008 (e.g. `else generate` in the HAS_M selection), and
+        # GHDL's --std=08 in the other workflows hides a Quartus project that still
+        # reads VHDL-1993: only the several-minute synthesis would fail, with
+        # "elsif or else statement inside a generate statement is not supported in
+        # VHDL_1993". Fail in seconds instead, and keep every VHDL file the core
+        # instantiates in the project (m_decode.vhd was once missing).
+        run: |
+          qsf=../TopLevel/platforms/internal-mem/quartus/core_fpga_test.qsf
+          if ! grep -Eq '^set_global_assignment -name VHDL_INPUT_VERSION VHDL_2008' "$qsf"; then
+            echo "::error::$qsf does not set VHDL_INPUT_VERSION VHDL_2008; Quartus would read the core as VHDL-1993 and fail in synthesis"
+            exit 1
+          fi
+          for f in ../Core/common/*.vhd ../Core/I/*.vhd ../Core/M/m_decode.vhd; do
+            grep -q "Core/${f#../Core/}" "$qsf" || { echo "::error::$f is not in $qsf"; exit 1; }
+          done
 
       - name: Add Quartus to PATH
         # <<< ADJUST if Quartus is installed somewhere else on the
@@ -112,36 +132,28 @@ jobs:
             echo "Chain recovered after killall jtagd — continuing."
           fi
 
-      - name: Check the RISC-V toolchain (installed by insper-riscv/Infra)
-        # The GCC (with picolibc) and the patched Spike live in the
-        # workstation's shared cache, /opt/riscv-foundation, with wrappers
-        # in /usr/local/bin: Infra's GCC_SETUP.md and SPIKE_SETUP.md
-        # install them, and this workflow builds and downloads nothing.
-        # config.yaml links tests against picolibc, so fail here, with a
-        # pointer, if this runner lacks it.
-        run: |
-          # Captured in variables: `cmd | head -1` under pipefail (the
-          # default for `bash` here) fails with SIGPIPE when the command
-          # has more output than the first line, as spike --help does.
-          gcc_version=$(riscv32-unknown-elf-gcc --version)
-          echo "${gcc_version%%$'\n'*}"
-          if ! riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; then
-            echo "::error::riscv32-unknown-elf-gcc has no picolibc; install the toolchain as in insper-riscv/Infra's GCC_SETUP.md"
-            exit 1
-          fi
-          spike_help=$(spike --help 2>&1 || true)
-          echo "${spike_help%%$'\n'*}"
+      - name: Pull the ci-elf image
+        # Everything but Quartus and the board runs in Insper/Infra's ci-elf image (GHDL, the RISC-V
+        # GCC with picolibc, Spike, uv, Python and cocotb): the workstation provides nothing else, so a
+        # run does not depend on what is installed on it. `latest` is the last publication; to pin
+        # one, use its sha- tag.
+        run: docker pull "$IMAGE"
 
       - uses: astral-sh/setup-uv@v10.0.1
 
-      - name: Install Python dependencies (riscv-tools, editable from tools/Tools)
+      - name: Install Python dependencies for the board run (riscv-tools, editable from tools/Tools)
+        # On the runner itself: this step talks to Quartus and the JTAG cable.
         run: uv sync
 
       - name: Generate rv32_test.h
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
+        run: uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml generate-header
 
       - name: Build real test ROM images
-        run: uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif
+        # The board runs the SDRAM platform (the SDRAM is the RAM; the host reaches it through the
+        # JTAG debug port): the existing programs, then the ones that use the SDRAM.
+        run: |
+          uv run riscv-tools --config tools/riscv_build/config.sdram-regression.yaml compile --emit mif
+          uv run riscv-tools --config tools/riscv_build/config.sdram.yaml compile --emit mif
 
       - name: Compile and program the uart-echo baseline
         # One full Quartus compile for the whole job. uart-echo is baked into
@@ -169,10 +181,13 @@ jobs:
         # used for local `tail -f`), so a run kicked off by CI is
         # watchable the same way as a local one, from the runner itself.
         #
-        # set -o pipefail: this shell (`bash -e {0}`, Actions' default)
-        # does NOT set pipefail on its own — without it, `cmd | tee`
-        # always exits 0 (tee's own exit code), so a failing test suite
-        # would silently show this step as green.
+        # What the host lends it: Quartus (read-only) and the JTAG server of the host (jtagd) through
+        # the host network; the USB-Blaster is not passed into the container. The run is the invoking
+        # user's (--user) so the files it writes belong to the runner; --userns=host keeps that valid
+        # on a Docker daemon that remaps users, and does nothing on one that does not.
+        #
+        # The checkout is the working directory; its parent is mounted too because the sibling
+        # repositories (Core, Memory, TopLevel) are cloned next to it.
         env:
           PYTHONUNBUFFERED: "1"
         run: |

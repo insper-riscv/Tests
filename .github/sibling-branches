@@ -1,0 +1,5 @@
+# Branches of the companion pull requests, one "Repository=branch" per line. A repository that is
+# not listed is cloned from main. Remove a line when its pull request is merged.
+Core=feat/sdram-ready
+Memory=feat/sdram-bist
+TopLevel=feat/sdram-platform
