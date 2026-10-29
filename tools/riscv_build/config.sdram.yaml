@@ -8,7 +8,9 @@ paths:
   c_dir: c-sdram
   asm_dir: asm-sdram
 
-# the monitor waits for someone to type: on the board it runs with --only, then
-# `console --interactive` talks to it
+# the monitor waits for someone to type and hex-id pauses for a person to read the display: on the
+# board each runs with --only (for the monitor, `console --interactive` then talks to it)
 orchestrator:
-  interactive: [monitor]
+  interactive: [monitor, hex-id]
+  # On the board, the display shows the number of the program that runs, in decimal, on the six digits
+  board_display: true
