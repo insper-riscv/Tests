@@ -19,7 +19,7 @@ class UartHardwareTestUnitTests(unittest.TestCase):
     def test_default_payload_is_exact_firmware_contract(self) -> None:
         self.assertEqual(uart_hw.DEFAULT_PAYLOAD, b"RX test\r\n")
         self.assertEqual(len(uart_hw.DEFAULT_PAYLOAD), uart_hw.ECHO_BYTE_COUNT)
-        self.assertEqual(uart_hw.UART_TX_EXPECTED, b"UART OK\r\n")
+        self.assertEqual(uart_hw.UART_TX_EXPECTED, b"Hello, world!\r\n")
         self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ATR")
         self.assertEqual(uart_hw.UART_ERRORS_READY, b"OB")
         self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, b"\x12\x34")

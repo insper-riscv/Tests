@@ -31,7 +31,7 @@ uv run riscv-tools --config tools/riscv_build/config.yaml generate-header
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   # hardware real
 uv run riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulação
 uv run python -m unittest discover -s tests/host -v                            # harness UART, sem placa
-uv run riscv-tools --config tools/riscv_build/config.yaml sim --exclude uart-echo,uart-tx,uart-errors
+uv run riscv-tools --config tools/riscv_build/config.yaml sim                  # inclui uart-tx, uart-echo e uart-errors
 
 # hardware real: uma síntese, UART física dedicada, depois mailbox/JTAG
 uv run riscv-tools --config tools/riscv_build/config.yaml program build/real/uart-echo.mif
