@@ -17,8 +17,8 @@ Suíte de testes de hardware real e de simulação do núcleo RISC-V `RV32IM`, d
 - [boot.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/platform/boot.md): estado de boot, `crt0` da picolibc e `boot_rom.S`.
 - [atualizacao-de-programa.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/platform/atualizacao-de-programa.md): reescrita da FLASH por JTAG e passagem de boot entre testes.
 - [simulacao.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/guide/simulacao.md): simulação do topo de hardware com as memórias reais do Quartus.
-- [docs/pt-br/bugs/pll-lock-loss.md](docs/pt-br/bugs/pll-lock-loss.md), [docs/pt-br/bugs/small-data-section.md](docs/pt-br/bugs/small-data-section.md) e [docs/pt-br/bugs/data-harvard.md](docs/pt-br/bugs/data-harvard.md): bugs de hardware investigados e corrigidos.
-- [docs/pt-br/bugs/per-entity-tests-ci-breakage.md](docs/pt-br/bugs/per-entity-tests-ci-breakage.md): bugs no CI dos testes por entidade.
+- [docs/bugs/PLL_LOCK_LOSS_BUG.md](docs/bugs/PLL_LOCK_LOSS_BUG.md), [docs/bugs/SMALL_DATA_SECTION_BUG.md](docs/bugs/SMALL_DATA_SECTION_BUG.md) e [docs/bugs/DATA_HARVARD_BUG.md](docs/bugs/DATA_HARVARD_BUG.md): bugs de hardware investigados e corrigidos.
+- [docs/bugs/PER_ENTITY_TESTS_CI_BREAKAGE.md](docs/bugs/PER_ENTITY_TESTS_CI_BREAKAGE.md): bugs no CI dos testes por entidade.
 
 ## 2. Pré-requisitos
 
@@ -28,13 +28,13 @@ Os testes de hardware real exigem uma workstation com Quartus, um runner self-ho
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `asm/`, `c/` | Os 123 testes da suíte (83 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm/`, `c/` | Os 125 testes da suíte (85 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
 | `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
 | `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tests/host/` | Testes unitários do harness de UART física, sem precisar da placa |
 | `tests/python/` | Testes por entidade remanescentes: sequências de instrução cruas, todas com `skip`, no `tests.json` ([documentação](tests/python/README.md)) |
 | `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação) e `sim-fpga.yml` (simulação do topo de hardware) |
-| `docs/` | Bugs investigados em `docs/pt-br/bugs/`; a arquitetura de memória, o boot, o runtime e a programação da placa estão em `docs/` do submódulo `Insper-RISC-V` |
+| `docs/` | Bugs investigados em `docs/bugs/`; a arquitetura de memória, o boot, o runtime e a programação da placa estão em `docs/` do submódulo `Insper-RISC-V` |
 
 ## 4. Uso Rápido
 
