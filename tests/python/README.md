@@ -52,7 +52,7 @@ Each entry is a test name (used as the CLI argument above) mapping to:
 | Field | Meaning |
 | :--- | :--- |
 | `toplevel` | The VHDL entity to elaborate (lowercase, matching the `.vhd`'s own entity name) |
-| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's root, e.g. `Insper-RISC-V/Core/src/I/alu.vhd` |
+| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's root, e.g. `Insper-RISC-V/Core/src/I-E/alu.vhd` |
 | `test_module` | Dotted Python path to the test file, e.g. `tests.python.unittests.entities.ALU` |
 | `parameters` | Optional: VHDL generics to pass (e.g. `ROM_FILE` for an entity that loads a memory image) |
 | `skip` / `skip_reason` | Optional: excluded from the `all` sweep with the reason printed, but still runs if invoked by name explicitly |
