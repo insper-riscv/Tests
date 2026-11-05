@@ -1,0 +1,14 @@
+# The Zihpm profile with 4 event counters of 40 bits (hpm_counters = 4, hpm_width = 40), for the program
+# that expects the indices beyond the fourth to read zero and the high half of a counter to keep 8 bits.
+# That program lives apart (asm-hpm-reduced/) because it fails on the full profile of the other programs.
+extends: config.yaml
+
+paths:
+  build_dir: build-hpm-reduced
+  c_dir: asm-hpm-reduced            # no C program here
+  asm_dir: asm-hpm-reduced
+
+sim:
+  parameters:
+    HPM_COUNTERS: "4"
+    HPM_WIDTH: "40"

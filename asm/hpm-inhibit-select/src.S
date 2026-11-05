@@ -2,10 +2,11 @@
 // RV32_TEST_KIND: memory
 //
 // mcountinhibit and the selectors of the event counters. Writing all ones to mcountinhibit leaves
-// bits 0, 2 and 3 to 6 (0x7D); with the bit of counter 3 set the counter keeps its value while
-// branches are taken, and clearing the bit makes it count again. A counter written with a value
-// reads it back through the machine register and its read-only mirror, and the selector reads back
-// the 4-bit code.
+// bits 0, 2 and 3 up (the counters the core has), and the program stores the bits up to 6 (0x7D), so the
+// result does not depend on how many counters beyond the fourth the core has. With the bit of counter 3
+// set the counter keeps its value while branches are taken, and clearing the bit makes it count again.
+// A counter written with a value reads it back through the machine register and its read-only mirror,
+// and the selector reads back the 4-bit code.
 #include "rv32_platform.h"
 
     .section .text
@@ -22,7 +23,8 @@ main:
 
     li   x6, 0xFFFFFFFF
     csrw 0x320, x6
-    csrr x22, 0x320               # 0x7D
+    csrr x22, 0x320
+    andi x22, x22, 0x7D           # bits 0, 2 and 3 to 6 (the core has at least 4 counters)
     csrw 0x320, x0
 
     li   x6, 8
