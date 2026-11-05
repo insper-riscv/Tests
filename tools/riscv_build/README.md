@@ -190,11 +190,14 @@ checks that `quartus/init.mif` is byte-for-byte identical to the compiled
 3. replaces both FLASH copies with `uart-tx.mif` over JTAG, restarts through
    the boot ROM, and requires the exact `Hello, world!\r\n` output plus
    `TOHOST=1`;
-4. loads `uart-errors.mif`, intentionally writes while TX is busy and requires
-   the exact `ATR` response, proving that the second byte was dropped and that
-   `TX_DROPPED` was set and cleared through W1C;
-5. sends `12 34` without allowing the firmware to consume the first byte, then
-   requires `OB`, proving `RX_OVERRUN`, newest-byte retention and W1C clearing;
+4. loads `uart-errors.mif`, fills the TX path with the 17 accepted bytes `A`
+   through `Q` (one in the physical transmitter and 16 in the FIFO), rejects
+   an extra `X`, and requires the exact accepted stream followed by the `R`
+   prompt; the firmware checks `TX_LEVEL`, `TX_DROPPED` and its W1C clearing;
+5. sends 17 bytes (`00` through `10`) without allowing the firmware to consume
+   RX, then requires `O`; the firmware proves that the 16-byte RX FIFO kept
+   `00` through `0f` in order, discarded only `10`, reported `RX_OVERRUN`, and
+   cleared it through W1C;
 6. sends one raw 32-byte burst (`00` through `1f`), requires the exact echo plus
    the final `P` marker, no new error flags, and `TOHOST=1`.
 

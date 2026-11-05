@@ -1,102 +1,177 @@
 // RV32_TEST_KIND: unit
+#include <stdint.h>
+
 #include "rv32_test.h"
 
-#define UART_BASE      0xC0000000u
-#define UART_TX_DATA   (*(volatile unsigned int *)(UART_BASE + 0x00u))
-#define UART_RX_DATA   (*(volatile unsigned int *)(UART_BASE + 0x04u))
-#define UART_STATUS    (*(volatile unsigned int *)(UART_BASE + 0x08u))
+/* Endereço do registrador de dados de transmissão da UART. */
+static constexpr uintptr_t UART_TX_DATA_ADDRESS = UINT32_C(0xC0000000);
+/* Endereço do registrador de dados de recepção da UART. */
+static constexpr uintptr_t UART_RX_DATA_ADDRESS = UINT32_C(0xC0000004);
+/* Endereço do registrador de estado da UART. */
+static constexpr uintptr_t UART_STATUS_ADDRESS = UINT32_C(0xC0000008);
+/* Máscara que indica a presença de um byte na FIFO de recepção. */
+static constexpr uint32_t UART_RX_VALID = UINT32_C(1) << 0;
+/* Máscara que indica espaço disponível na FIFO de transmissão. */
+static constexpr uint32_t UART_TX_READY = UINT32_C(1) << 1;
+/* Máscara do erro persistente causado por recepção com FIFO cheia. */
+static constexpr uint32_t UART_RX_OVERRUN = UINT32_C(1) << 2;
+/* Máscara do erro persistente causado por transmissão com FIFO cheia. */
+static constexpr uint32_t UART_TX_DROPPED = UINT32_C(1) << 3;
+/* Máscara que indica FIFO de recepção cheia. */
+static constexpr uint32_t UART_RX_FULL = UINT32_C(1) << 4;
+/* Máscara que indica transmissor físico e FIFO completamente ociosos. */
+static constexpr uint32_t UART_TX_IDLE = UINT32_C(1) << 6;
+/* Deslocamento do nível da FIFO de recepção no registrador de estado. */
+static constexpr uint32_t UART_RX_LEVEL_SHIFT = UINT32_C(8);
+/* Deslocamento do nível da FIFO de transmissão no registrador de estado. */
+static constexpr uint32_t UART_TX_LEVEL_SHIFT = UINT32_C(16);
+/* Máscara dos campos de nível das FIFOs. */
+static constexpr uint32_t UART_LEVEL_MASK = UINT32_C(0xFF);
+/* Máscara conjunta dos erros persistentes da UART. */
+static constexpr uint32_t UART_ERROR_MASK = UART_RX_OVERRUN | UART_TX_DROPPED;
+/* Profundidade configurada para cada FIFO da UART. */
+static constexpr uint32_t FIFO_DEPTH = UINT32_C(16);
+/* Quantidade aceita entre o transmissor físico e a FIFO cheia. */
+static constexpr uint32_t TX_ACCEPTED_COUNT = FIFO_DEPTH + UINT32_C(1);
+/* Quantidade de bytes usada para testar retorno circular das FIFOs. */
+static constexpr uint32_t BURST_BYTE_COUNT = UINT32_C(32);
 
-#define UART_RX_VALID   (1u << 0)
-#define UART_TX_READY   (1u << 1)
-#define UART_RX_OVERRUN (1u << 2)
-#define UART_TX_DROPPED (1u << 3)
-#define UART_ERROR_MASK (UART_RX_OVERRUN | UART_TX_DROPPED)
+/* Converte um endereço MMIO em ponteiro para registrador de 32 bits. */
+static volatile uint32_t *uart_register(uintptr_t address)
+{
+    return (volatile uint32_t *)address;
+}
 
-#define OVERRUN_LAST_BYTE 0x34u
-#define BURST_BYTE_COUNT  32u
+/* Lê o estado atual da UART. */
+static uint32_t uart_status(void)
+{
+    return *uart_register(UART_STATUS_ADDRESS);
+}
 
-static void require(int condition)
+/* Escreve no registrador de estado para limpar erros persistentes. */
+static void uart_write_status(uint32_t value)
+{
+    *uart_register(UART_STATUS_ADDRESS) = value;
+}
+
+/* Interrompe o teste caso uma condição obrigatória seja falsa. */
+static void require(bool condition)
 {
     if (!condition) {
         RV32_FAIL(1);
     }
 }
 
+/* Aguarda espaço disponível na FIFO de transmissão. */
 static void uart_wait_tx_ready(void)
 {
-    while ((UART_STATUS & UART_TX_READY) == 0u) {
+    while ((uart_status() & UART_TX_READY) == UINT32_C(0)) {
     }
 }
 
-static void uart_putc(unsigned char value)
+/* Extrai do estado o nível atual da FIFO de recepção. */
+static uint32_t uart_rx_level(uint32_t status)
+{
+    return (status >> UART_RX_LEVEL_SHIFT) & UART_LEVEL_MASK;
+}
+
+/* Extrai do estado o nível atual da FIFO de transmissão. */
+static uint32_t uart_tx_level(uint32_t status)
+{
+    return (status >> UART_TX_LEVEL_SHIFT) & UART_LEVEL_MASK;
+}
+
+/* Aguarda o esvaziamento da FIFO e a conclusão do último stop bit. */
+static void uart_wait_tx_idle(void)
+{
+    while ((uart_status() & UART_TX_IDLE) == UINT32_C(0)) {
+    }
+}
+
+/* Insere um byte na FIFO de transmissão após aguardar espaço. */
+static void uart_putc(uint8_t value)
 {
     uart_wait_tx_ready();
-    UART_TX_DATA = value;
+    *uart_register(UART_TX_DATA_ADDRESS) = value;
 }
 
-static unsigned char uart_getc(void)
+/* Aguarda e remove o próximo byte da FIFO de recepção. */
+static uint8_t uart_getc(void)
 {
-    while ((UART_STATUS & UART_RX_VALID) == 0u) {
+    while ((uart_status() & UART_RX_VALID) == UINT32_C(0)) {
     }
 
-    return (unsigned char)(UART_RX_DATA & 0xFFu);
+    return (uint8_t)(*uart_register(UART_RX_DATA_ADDRESS) & UINT32_C(0xFF));
 }
 
+/* Valida capacidade, descarte, erros persistentes e retorno circular. */
 int main(void)
 {
-    unsigned int status;
+    uint32_t status;
 
-    /* Start from known sticky-error state. */
-    UART_STATUS = UART_ERROR_MASK;
-    require((UART_STATUS & UART_ERROR_MASK) == 0u);
-    require((UART_STATUS & UART_TX_READY) != 0u);
-
-    /*
-     * 'A' starts a real frame. The immediately following 'X' is issued while
-     * TX is busy and must be discarded while setting TX_DROPPED. The host
-     * therefore observes "ATR", never "AXTR".
-     */
-    UART_TX_DATA = (unsigned int)'A';
-    UART_TX_DATA = (unsigned int)'X';
-    uart_wait_tx_ready();
-    require((UART_STATUS & UART_TX_DROPPED) != 0u);
-
-    UART_STATUS = UART_TX_DROPPED;
-    require((UART_STATUS & UART_TX_DROPPED) == 0u);
-    uart_putc((unsigned char)'T');
-    uart_putc((unsigned char)'R');
-    uart_wait_tx_ready();
+    /* Inicia com erros persistentes limpos e filas vazias. */
+    uart_write_status(UART_ERROR_MASK);
+    status = uart_status();
+    require((status & UART_ERROR_MASK) == UINT32_C(0));
+    require((status & UART_TX_IDLE) != UINT32_C(0));
+    require(uart_rx_level(status) == UINT32_C(0));
+    require(uart_tx_level(status) == UINT32_C(0));
 
     /*
-     * After the 'R' prompt, the host sends 0x12 and 0x34 back-to-back. Do not
-     * consume RX_DATA until the second byte has raised RX_OVERRUN.
+     * O primeiro byte entra no transmissor físico e os 16 seguintes preenchem
+     * a FIFO. O byte 'X' deve ser rejeitado sem alterar os bytes de 'A' a 'Q'.
      */
-    while ((UART_STATUS & UART_RX_OVERRUN) == 0u) {
+    for (uint32_t index = 0; index < TX_ACCEPTED_COUNT; ++index) {
+        *uart_register(UART_TX_DATA_ADDRESS) = (uint8_t)('A' + index);
+    }
+    *uart_register(UART_TX_DATA_ADDRESS) = (uint8_t)'X';
+
+    status = uart_status();
+    require((status & UART_TX_READY) == UINT32_C(0));
+    require((status & UART_TX_DROPPED) != UINT32_C(0));
+    require(uart_tx_level(status) == FIFO_DEPTH);
+
+    uart_write_status(UART_TX_DROPPED);
+    require((uart_status() & UART_TX_DROPPED) == UINT32_C(0));
+    uart_wait_tx_idle();
+
+    /* Solicita 17 bytes ao host sem consumir o registrador de recepção. */
+    uart_putc((uint8_t)'R');
+    uart_wait_tx_idle();
+
+    while ((uart_status() & UART_RX_OVERRUN) == UINT32_C(0)) {
     }
 
-    status = UART_STATUS;
-    require((status & UART_RX_VALID) != 0u);
-    require((status & UART_RX_OVERRUN) != 0u);
-    require((unsigned int)uart_getc() == OVERRUN_LAST_BYTE);
+    status = uart_status();
+    require((status & UART_RX_VALID) != UINT32_C(0));
+    require((status & UART_RX_FULL) != UINT32_C(0));
+    require((status & UART_RX_OVERRUN) != UINT32_C(0));
+    require(uart_rx_level(status) == FIFO_DEPTH);
 
-    status = UART_STATUS;
-    require((status & UART_RX_VALID) == 0u);
-    require((status & UART_RX_OVERRUN) != 0u);
+    /* A recepção preserva os 16 primeiros bytes e descarta apenas o 17º. */
+    for (uint32_t index = 0; index < FIFO_DEPTH; ++index) {
+        require(uart_getc() == (uint8_t)index);
+    }
 
-    UART_STATUS = UART_RX_OVERRUN;
-    require((UART_STATUS & UART_RX_OVERRUN) == 0u);
-    uart_putc((unsigned char)'O');
-    uart_putc((unsigned char)'B');
-    uart_wait_tx_ready();
+    status = uart_status();
+    require((status & UART_RX_VALID) == UINT32_C(0));
+    require((status & UART_RX_OVERRUN) != UINT32_C(0));
+    require(uart_rx_level(status) == UINT32_C(0));
 
-    /* Echo one uninterrupted host write and require that it creates no error. */
-    for (unsigned int index = 0; index < BURST_BYTE_COUNT; ++index) {
+    uart_write_status(UART_RX_OVERRUN);
+    require((uart_status() & UART_ERROR_MASK) == UINT32_C(0));
+
+    /* Confirma a recuperação antes da rajada que testa o retorno circular. */
+    uart_putc((uint8_t)'O');
+    uart_wait_tx_idle();
+
+    for (uint32_t index = 0; index < BURST_BYTE_COUNT; ++index) {
         uart_putc(uart_getc());
     }
-    uart_wait_tx_ready();
-    require((UART_STATUS & UART_ERROR_MASK) == 0u);
+    uart_wait_tx_idle();
+    require((uart_status() & UART_ERROR_MASK) == UINT32_C(0));
 
-    uart_putc((unsigned char)'P');
-    uart_wait_tx_ready();
+    uart_putc((uint8_t)'P');
+    uart_wait_tx_idle();
     RV32_PASS();
 }

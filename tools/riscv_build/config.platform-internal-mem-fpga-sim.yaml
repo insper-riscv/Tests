@@ -9,15 +9,6 @@ isa:
   base: i
   default_ext: ''
   canonical_order: MAFDQLCBJTPVNH
-memory:
-  boot_rom_base: 0
-  boot_rom_words: 512
-  rom_base: 2048
-  rom_words: 7680
-  ram_base: 32768
-  ram_words: 40960
-  tohost_addr: 196584
-  fromhost_addr: 196592
 paths:
   sources:
   - Insper-RISC-V/src/simulation/internal-mem/runtime/_exit.c
@@ -34,10 +25,9 @@ quartus:
   rom_mif_target: init.mif
   boot_rom_mif_target: boot_rom_init.mif
   jtag_device: '@1: 5CE(BA4|FA4) (0x02B050DD)'
-  rom_mem_instances:
-  - 1
-  - 3
-  ram_mem_instance: 2
+  ram_mem_instance: 0
+  rom_write_method: jtag_loader
+  rom_mem_instances: []
   program_wait_seconds: 15
   poll_interval_seconds: 2.5
   default_timeout_s: 15
@@ -104,23 +94,29 @@ sim:
   - Insper-RISC-V/Core/src/core/stage_wb.vhd
   - Insper-RISC-V/Core/src/core/core.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/Blinky.vhd
-  - Insper-RISC-V/Memory/src/rom/cyclone-v/boot_rom1port.vhd
-  - Insper-RISC-V/Memory/src/rom/cyclone-v/flash1port.vhd
-  - Insper-RISC-V/Memory/src/rom/cyclone-v/flash_mem1port.vhd
-  - Insper-RISC-V/Memory/src/ram/cyclone-v/ram1port.vhd
+  - Insper-RISC-V/Memory/src/ROM/Cyclone-V/boot_rom.vhd
+  - Insper-RISC-V/Memory/src/ROM/Cyclone-V/flash.vhd
+  - Insper-RISC-V/Memory/src/ROM/SoC/flash_jtag_core.vhd
+  - Insper-RISC-V/Memory/src/ROM/SoC/flash_loader.vhd
+  - Insper-RISC-V/Memory/src/ROM/Cyclone-V/flash_jtag_shell.vhd
+  - Insper-RISC-V/Memory/src/RAM/FPGA/Cyclone-V/ram.vhd
   - Insper-RISC-V/src/simulation/internal-mem/pll/pll_sim.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uart2BusTop_pkg.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/baudGen.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartRx.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartTx.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartTop.vhd
+  - Insper-RISC-V/Peripherals/src/UART/serial/uart_fifo.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/uart.vhd
+  - Insper-RISC-V/src/simulation/internal-mem/rtl/internal_mem_map_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/quartus/core_fpga_test.vhd
   test_module: testbench.test_c_program
   python_path:
   - Insper-RISC-V/src/simulation/internal-mem
   env:
-    SIM_TIMEOUT_CYCLES: '250000'
+    SIM_TIMEOUT_CYCLES: '500000'
+    TOHOST_ADDR: '0x0002FFE8'
+    STDOUT_ADDR: '0x0002FBE0'
     SIM_CLOCK: CLOCK_50
     SIM_CLOCK_PERIOD_NS: '20'
     SIM_RESET: FPGA_RESET_N
@@ -145,3 +141,12 @@ emulator:
   - Insper-RISC-V/src/simulation/internal-mem/runtime/spike_exit.S
   gcc_flags:
   - -DRV32_SPIKE
+memory:
+  boot_rom_base: 0
+  boot_rom_words: 1024
+  rom_base: 4096
+  rom_words: 7168
+  ram_base: 32768
+  ram_words: 40960
+  tohost_addr: 196584
+  fromhost_addr: 196592
