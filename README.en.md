@@ -28,6 +28,7 @@ Real-hardware tests require a workstation with Quartus, a self-hosted GitHub Act
 | Path | Contents |
 | :--- | :--- |
 | `asm/`, `c/` | The 123 tests of the suite (83 in assembly and 40 in C), one `<name>/src.S` or `<name>/src.c` per folder |
+| `asm-irq/` | Interrupt programs of the `Core`, one `<name>/src.S` per folder; each one checks itself and writes to `tohost`. `tests/python` runs them against a CLINT model ([documentation](docs/en/testing/interrupt-programs.md)) |
 | `tools/riscv_build/` | This project's configuration for `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` and its variants for the DE0-CV): it extends the `config.platform-*.yaml` that `riscv-tools platform sync` generates from the [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) submodule (toolchain, memory map, runtime, Quartus project, and simulation), and adds only the test paths |
 | `tests/python/` | Remaining per-entity tests: raw instruction sequences, all marked `skip`, in `tests.json` ([documentation](tests/python/README.md)) |
 | `.github/workflows/` | `real.yml` (real hardware), `sim.yml` (simulation), and `sim-fpga.yml` (hardware-top simulation) |

@@ -29,8 +29,9 @@ tests/python/
 ├── unittests/
 │   ├── entities/                # one file per VHDL entity (ALU.py, RAM.py, ...)
 │   │   └── data/                # fixture files an entity test's generics point at (e.g. testROM.hex)
-│   └── instructions/            # raw hand-assembled instruction-sequence tests (see "Known issue" below)
+│   ├── instructions/            # raw hand-assembled instruction-sequence tests (see "Known issue" below)
 │       └── codes/                # the .hex images those tests load
+│   └── irq/                     # the asm-irq/ programs on the core with a CLINT model (see ../../docs/en/testing/interrupt-programs.md)
 └── sim_build/                   # generated: <group>/<name>/{waves.ghw, ...} per test
 ```
 

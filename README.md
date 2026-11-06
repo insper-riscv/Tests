@@ -30,6 +30,7 @@ Os testes de hardware real exigem uma workstation com Quartus, um runner self-ho
 | :--- | :--- |
 | `asm/`, `c/` | Os 123 testes da suíte (83 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
 | `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
+| `asm-irq/` | Programas de interrupção do `Core`, um `<name>/src.S` por pasta; cada um confere a si mesmo e grava em `tohost`. O `tests/python` os executa contra um modelo do CLINT ([documentação](docs/pt-br/testing/interrupt-programs.md)) |
 | `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tests/host/` | Testes unitários do harness de UART física, sem precisar da placa |
 | `tests/python/` | Testes por entidade remanescentes: sequências de instrução cruas, todas com `skip`, no `tests.json` ([documentação](tests/python/README.md)) |
