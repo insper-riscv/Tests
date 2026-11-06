@@ -57,6 +57,21 @@ Os programas `uart-tx`, `uart-echo` e `uart-errors` rodam na simulação da plat
 
 A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação.
 
+A plataforma `modular` do submódulo roda os programas de `c/` e `asm/` em qualquer combinação de ROM e RAM internas ou externas com e sem cache de instruções e de dados, escolhida na linha de comando, sem alterar arquivo versionado. O `include-modular/` guarda o cabeçalho com o mapa dela. O exemplo roda a arquitetura C (ROM externa atrás da cache de instruções, RAM interna).
+
+```bash
+ulimit -s unlimited
+riscv-tools --profile rv32im_zicclsm_zicntr_zihpm_zifencei --memory rom=ext,ram=int,icache=on,dcache=off \
+  platform sync --prefix Insper-RISC-V --source Insper-RISC-V/src/simulation/modular/config.yaml \
+  --output tools/riscv_build/config.generated.yaml
+printf 'extends: config.generated.yaml\npaths: {include_dir: tools/riscv_build/include-modular, build_dir: build, c_dir: c, asm_dir: asm}\n' \
+  > tools/riscv_build/config.variation.yaml
+riscv-tools --config tools/riscv_build/config.variation.yaml generate-header
+riscv-tools --config tools/riscv_build/config.variation.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.variation.yaml sim --exclude uart-echo,uart-tx,uart-errors
+```
+
+
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).

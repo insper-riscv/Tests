@@ -15,6 +15,10 @@ logs/
 # in config.yaml — not hand-maintained, regenerate instead of editing.
 tools/riscv_build/include/rv32_test.h
 tools/riscv_build/include-sdram/rv32_test.h
+tools/riscv_build/include-modular/rv32_test.h
+# Configs of a run of the modular platform (riscv-tools platform sync), written per combination of memories.
+tools/riscv_build/config.generated.yaml
+tools/riscv_build/config.variation.yaml
 # Checked-in .hex fixtures for the instruction-level cocotb tests
 # (see tests/python/unittests/instructions/) — the bare `build/` rule
 # above would otherwise swallow this one, ported from RV32IM's own
