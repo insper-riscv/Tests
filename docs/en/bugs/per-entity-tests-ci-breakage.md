@@ -1,57 +1,58 @@
-# Two bugs in the "Run per-entity VHDL unit tests" step (`tests/python/`)
+# Per-entity tests (`tests/python/`)
 
 🌐 [Português](../../pt-br/bugs/per-entity-tests-ci-breakage.md) · [English](per-entity-tests-ci-breakage.md)
 
-## Context
+This document describes the cocotb test suite for VHDL entities and raw instruction sequences, and the conditions for the `instructions` group to run again.
 
-This step (`uv run python tests/python/runner.py`) is a cocotb test suite **separate** from the `riscv-tools` suite (`Tests/asm`/`Tests/c`) that the rest of this repository uses: it is older, tests individual VHDL entities (`ALU`, `RegFile`, `ROM_simulation`, etc.) and some raw instruction sequences, configured in `tests/python/tests.json`, without going through the `riscv-tools` compiler/linker/`config.yaml`.
+## 1. The suite
 
-Found while investigating why the CI `sim.yml` started failing on this step (after changing the Spike cache, see [MEMORY_ARCHITECTURE.md](https://github.com/insper-riscv/TopLevel/blob/main/docs/MEMORY_ARCHITECTURE.md)): both problems below already existed before, they had just never been noticed by anyone running this step to the end.
+The suite runs with `uv run python tests/python/runner.py`, separate from the `riscv-tools` suite (`asm` and `c`). It tests individual VHDL entities (`ALU`, `RegFile`, `ROM_simulation`, and others) and a few raw instruction sequences, all configured in `tests/python/tests.json`, without going through the `riscv-tools` compiler, linker, or `config.yaml`.
 
-## Bug 1 (fixed): `ROM.py` used an API removed in cocotb 2.0
+`tests.json` has two groups of entries.
+
+| Group | Content | State in `all` |
+| :--- | :--- | :--- |
+| `entities` | one testbench per entity | runs |
+| `instructions` | `one`, `two`, `three`, `four`, `five`, `six`, `MUL`, `FWD`, `LOAD_USE`, and `MEXT`, raw instruction sequences | skipped |
+
+## 2. Entries with `skip`
+
+An entry with `"skip": true` and a `"skip_reason"` stays out of the `all` sweep; the runner prints the reason and moves on. Called by name (`python3 tests/python/runner.py one`), the same entry runs normally, which lets one see the current error without editing `tests.json`. It is the same mechanism as the `.off` files of the `asm` and `c` suites, adapted to the single configuration format of this suite.
+
+## 3. Why the `instructions` group is skipped
+
+The top `rv32i3stage_core_sim_test.vhd` instantiates two copies of `ROM_simulation`, one for the BOOT_ROM (generic `ROM_FILE => BOOT_ROM_FILE`) and one for the FLASH (generic `ROM_FILE => ROM_FILE`). The ten entries only pass `ROM_FILE`. Without `BOOT_ROM_FILE`, the BOOT_ROM uses the default value of the entity, `default.hex`, which does not exist, and the elaboration fails before any test:
 
 ```
-ImportError: cannot import name 'TestFailure' from 'cocotb.result'
+rom_simulation.vhd:79:12:error: cannot open file: default.hex
 ```
 
-`tests/python/unittests/entities/ROM.py` did `from cocotb.result import TestFailure` and `raise TestFailure(...)`: that class **no longer exists in cocotb 2.0** (the project already uses `cocotb>=2.0`, confirmed in the logs themselves: `Initialized cocotb v2.0.1`). The test crashed on the module import, before running any assertion.
-
-**Fix**: the import was removed; `raise TestFailure(...)` became `raise AssertionError(...)`: in cocotb 2.0 any exception raised inside the test already marks it as FAIL, no special class is needed. Verified by running `python3 tests/python/runner.py ROM` alone: `TESTS=1 PASS=1`.
-
-## Bug 2 (not truly fixed; tests marked as `skip`): real regression from the BOOT_ROM+FLASH redesign
-
-```
-/.../Memory/sim/rom_simulation.vhd:79:12:error: cannot open file: default.hex
-in process ...boot_rom@rom_simulation(rtl).init
-```
-
-### Root cause
-
-Since the memory redesign (fixed BOOT_ROM + FLASH + RAM; see [MEMORY_ARCHITECTURE.md](https://github.com/insper-riscv/TopLevel/blob/main/docs/MEMORY_ARCHITECTURE.md)), `rv32i3stage_core_sim_test.vhd` instantiates **two** copies of `ROM_simulation`: one for BOOT_ROM (generic `ROM_FILE => BOOT_ROM_FILE`) and one for FLASH (generic `ROM_FILE => ROM_FILE`). The 10 configs of the `instructions` group in `tests/python/tests.json` (`one`, `two`, `three`, `four`, `five`, `six`, `MUL`, `FWD`, `LOAD_USE`, `MEXT`) only passed `ROM_FILE`: they were never updated after the redesign to also pass `BOOT_ROM_FILE`. Without that generic, BOOT_ROM falls back to the default value hardcoded in the entity itself (`"default.hex"`), which does not exist, and the elaboration fails before any test runs.
-
-### Why this is NOT a one-line fix
-
-Just adding `BOOT_ROM_FILE` would make the elaboration pass, but the tests would remain **logically wrong**, because each of these 10 modules assumes the old architecture (reset going straight to the contents of `ROM_FILE`, address 0), not the current one (reset always enters through BOOT_ROM first, user code only starts at `FLASH_BASE = 0x800` after the boot). Concrete example (`tests/python/unittests/instructions/one.py`):
+Passing `BOOT_ROM_FILE` would make the elaboration pass, but the tests would still be wrong, because each module assumes that reset goes straight to the contents of `ROM_FILE` at address 0. In the memory architecture, reset always enters through the BOOT_ROM, and user code starts at `FLASH_BASE = 0x800`, after the boot. The PC computation in `tests/python/unittests/instructions/one.py` shows the assumption:
 
 ```python
-# PC of each AUIPC: starts at 4 * instruction number (simple single-cycle model)
+# PC of each AUIPC: starts at 4 * instruction number (single-cycle model)
 pcs = [i * 4 for i in range(len(auipc_immediates))]
 ```
 
-This `pcs` assumes PC = 0, 4, 8, ... from the first cycle: with a real BOOT_ROM in front, the execution of the test code would only start at `0x800`, and would still take extra cycles (the BOOT_ROM jump itself causes bubbles in the pipeline). The `.hex` files of these tests (`tests/python/unittests/instructions/codes/**/*.hex`) were also generated assuming that their own content starts at address 0 of the array, without the padding that the real `riscv-tools` uses (`bin_to_image.read_words`'s `pad_words`, see `Tests/tools/Tools/src/riscv_tools/bin_to_image/core.py`) to align the content starting at `FLASH_BASE`.
+The `.hex` files in `tests/python/unittests/instructions/codes/` also start at address 0 of the array, without the padding that `riscv-tools` applies to align the content to `FLASH_BASE`. The BOOT_ROM jump also adds bubbles to the pipeline.
 
-A real fix needs, for each of the 10 tests:
-1. A real `BOOT_ROM_FILE` (e.g. `boot_rom.hex`, or a minimal stub that only does `j 0x800`);
-2. The `.hex` of each test regenerated/realigned with the `FLASH_BASE` padding;
-3. The PC/cycle-count computations of each Python module rewritten to count the real boot delay.
+## 4. Conditions to re-enable a test of the group
 
-This is redesign work, not a parameter tweak: that is why it was not done here.
+Each of the ten tests needs three items.
 
-### What was done for now
+1. A real `BOOT_ROM_FILE`, such as `boot_rom.hex` or a minimal stub that only executes `j 0x800`.
+2. The `.hex` of the test generated again, with the `FLASH_BASE` padding.
+3. The PC and cycle-count computations of the Python module rewritten to include the boot delay.
 
-The 10 entries in `tests/python/tests.json` gained `"skip": true` + `"skip_reason"` (in the same spirit as the `.off` files already used in the `asm`/`c` suite, see [data-harvard.md](data-harvard.md); only adapted to the single config format of this suite). `tests/python/runner.py` now skips any entry with `"skip": true` when it runs `all` (printing the reason), but still tries to run normally if called explicitly by name (`python3 tests/python/runner.py one`): useful for whoever tackles the real redesign and wants to see the current error without editing `tests.json` back.
+The memory architecture and the boot are described in the [Insper-RISC-V memory documentation](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/en/platform/memoria.md).
 
-Verified locally: `python3 tests/python/runner.py all` now ends with exit code 0 (13 tests pass, 10 skipped, 0 errors): the same command that the CI `sim.yml` runs.
+## 5. Test failure in cocotb 2.0
+
+In cocotb 2.0, any exception raised inside the test marks it as FAIL, and the `TestFailure` class of `cocotb.result` does not exist. Tests must fail with `AssertionError`:
+
+```python
+raise AssertionError("message")
+```
 
 ---
 
