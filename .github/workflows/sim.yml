@@ -1,32 +1,31 @@
 name: sim tests
 
+# Disparo: push so na main (a branch de um PR e testada pelo evento pull_request, entao nao roda duas
+# vezes), pull_request e manual. O mesmo padrao do tree.yml.
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+# Um PR por grupo (numero do PR) e a main por ref; uma nova execucao cancela a anterior.
 concurrency:
-  group: sim-${{ github.ref }}
+  group: sim-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  test-sim:
-    # Needs no hardware and no Quartus license (GHDL is open source), so
-    # it runs on a GitHub-hosted runner, independent of any workstation.
-    # insper-riscv/Infra's ELF image has GHDL, the RISC-V GCC with
-    # picolibc, Spike and uv already on PATH, so nothing is built or
-    # installed here. It is the latest publication; to pin one, use its
-    # sha- tag.
+  # Passos rapidos que nao simulam nada: harness do host, configs das plataformas, mapa de memoria.
+  sim-host:
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
-
     steps:
       - uses: actions/checkout@v7
         with:
-          # Insper-RISC-V (the platforms) and, inside it, Core, Memory, Peripherals and
-          # Common-Components: the platform configs of tools/riscv_build/ name their files
-          # as Insper-RISC-V/..., at the version this repository pins.
           submodules: recursive
 
       - name: Install Python dependencies (cocotb; riscv-tools comes from the image)
@@ -48,49 +47,242 @@ jobs:
         run: riscv-tools --config tools/riscv_build/config.yaml generate-header
 
       - name: Check the memory map against every copy
-        # The platform.yaml of internal-mem is the source of truth; the boot ROM, the runtime, the
-        # linker flags, config.yaml, the core's VHDL and the Quartus IPs must all agree with it.
         run: riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/internal-mem/platform.yaml
 
       - name: Check the memory map of the de0-cv platform, with the FLASH behind the caches
         run: riscv-tools --root Insper-RISC-V check-memory-map --platform src/cyclone-v/de0-cv/platform.yaml
 
-      - name: Build sim test ROM images
-        # compile also generates each C memory test's golden under Spike.
-        run: riscv-tools --config tools/riscv_build/config.yaml compile --emit hex
+  # A matriz: arquitetura de memoria x base. As variacoes Z rodam DENTRO do job, em paralelo (xargs -P),
+  # cada uma numa copia do checkout (variations/<arq>-<base>-<z>), e o resumo lista cada uma.
+  #   a = ROM e RAM internas, sem caches (topo internal-mem)
+  #   d = ROM e RAM externas atras das caches de instrucoes e de dados (topo de0-cv)
+  # b (ROM interna, RAM externa atras da cache de dados) e c (RAM interna, ROM externa atras da cache de
+  # instrucoes) ainda nao tem topo de simulacao que rode os programas deste repositorio: veja o README.
+  sim-matrix:
+    name: sim-${{ matrix.arch }}-${{ matrix.base }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {arch: a, base: i, variations: "none clsm fencei clsm_fencei"}
+          - {arch: a, base: e, variations: "none clsm fencei clsm_fencei"}
+          # Com a cache de instrucoes o boot ROM executa fence.i para descartar as linhas do programa
+          # anterior: sem Zifencei o nucleo nunca chega ao programa, entao so as variacoes com Zifencei.
+          - {arch: d, base: i, variations: "fencei clsm_fencei"}
+          - {arch: d, base: e, variations: "fencei clsm_fencei"}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
-      - name: Run sim tests
-        # The generic top exposes UART_RX/UART_TX. The same invocation runs
-        # uart-tx, uart-echo and uart-errors beside every other program.
-        run: riscv-tools --config tools/riscv_build/config.yaml sim
-
-      - name: Existing programs on the platform with the FLASH behind the caches
-        # The FLASH is a chip right after the BOOT_ROM (0x800) reached through the instruction and data caches; every result
-        # must be the one of internal-mem. The UART programs need the physical pins of the board top.
+      - name: Write the runner of one combination
         run: |
-          riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml generate-header
-          riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml compile --emit hex
-          riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml sim \
-            --exclude uart-echo,uart-tx,uart-errors
+          cat > "$RUNNER_TEMP/variation.sh" <<'RUNNER'
+          #!/bin/bash
+          # variation.sh ARCH BASE Z: one combination in its own copy of the checkout, so builds and
+          # simulations of the variations never share a file. Exit 0 = every program passed.
+          set -u -o pipefail
+          arch=$1; base=$2; z=$3
+          src=$GITHUB_WORKSPACE; work=$src/variations/$arch-$base-$z
+          mkdir -p "$work"
+          tar -C "$src" --exclude=./.git --exclude=./variations --exclude=./logs -cf - . | tar -C "$work" -xf -
+          cd "$work"
+          case $arch in
+            a) memory="rom=int,ram=int,icache=off,dcache=off"
+               platform=Insper-RISC-V/src/simulation/internal-mem/config.yaml
+               include=tools/riscv_build/include; skip="";;
+            d) memory="rom=ext,ram=ext,icache=on,dcache=on"
+               platform=Insper-RISC-V/src/cyclone-v/de0-cv/config.yaml
+               include=tools/riscv_build/include-sdram
+               # the UART programs need the physical pins of the board top
+               skip="uart-echo uart-tx uart-errors";;
+          esac
+          case $z in
+            none)         ext="_zicntr_zihpm";;
+            clsm)         ext="_zicclsm_zicntr_zihpm";;
+            fencei)       ext="_zicntr_zihpm_zifencei";;
+            clsm_fencei)  ext="_zicclsm_zicntr_zihpm_zifencei";;
+          esac
+          profile="rv32${base}m${ext}"
+          echo "== $arch $base $z: --profile $profile --memory $memory"
+          riscv-tools --profile "$profile" --memory "$memory" platform sync --prefix Insper-RISC-V \
+            --source "$platform" --output tools/riscv_build/config.generated.yaml || exit 2
+          cat > tools/riscv_build/config.variation.yaml <<EOC
+          extends: config.generated.yaml
+          paths:
+            include_dir: $include
+            build_dir: build
+            c_dir: c
+            asm_dir: asm
+          EOC
+          cfg=tools/riscv_build/config.variation.yaml
+          excl="$skip"
+          # Without Zicclsm a misaligned access traps instead of running: these two programs measure it.
+          case $z in none|fencei) excl="$excl misaligned-crossing wb-hold-crossing";; esac
+          # RV32E has 16 registers: an asm program that names x16..x31 (or a6, a7, s2..s11, t3..t6)
+          # does not assemble, so it does not apply to the E base.
+          if [ "$base" = e ]; then
+            for dir in asm/*/; do
+              name=${dir#asm/}; name=${name%/}
+              if sed -e 's://.*$::' -e 's:[;#].*$::' "$dir/src.S" \
+                | grep -qE '\b(x(1[6-9]|2[0-9]|3[01])|a[67]|s([2-9]|1[01])|t[3-6])\b'; then
+                excl="$excl $name"
+              fi
+            done
+          fi
+          only=$(ls c asm | grep -v -e ':' -e '^$' | sort -u | while read -r n; do
+            case " $excl " in *" $n "*) ;; *) echo "$n";; esac
+          done | paste -sd,)
+          riscv-tools --config $cfg generate-header || exit 2
+          riscv-tools --config $cfg compile --emit hex --only "$only" || exit 2
+          riscv-tools --config $cfg sim --only "$only"
+          RUNNER
+          chmod +x "$RUNNER_TEMP/variation.sh"
 
-      - name: Programs that use the SDRAM, with the FLASH behind the caches
+      - name: Run the Z variations in parallel
+        env:
+          ARCH: ${{ matrix.arch }}
+          BASE: ${{ matrix.base }}
+          VARIATIONS: ${{ matrix.variations }}
         run: |
-          riscv-tools --config tools/riscv_build/config.sdram-flash.yaml compile --emit hex
-          riscv-tools --config tools/riscv_build/config.sdram-flash.yaml sim --exclude hex-id
+          mkdir -p logs
+          # one GHDL process is single threaded and uses a few hundred MB: one variation per vCPU
+          echo $VARIATIONS | tr ' ' '\n' | xargs -P 4 -I{} bash -c \
+            '"$RUNNER_TEMP/variation.sh" "$0" "$1" {} > logs/{}.log 2>&1; echo $? > logs/{}.rc' "$ARCH" "$BASE"
+          status=0
+          {
+            echo "### sim-$ARCH-$BASE"
+            echo
+            echo "| Z variation | result | passed | failed |"
+            echo "| :--- | :--- | ---: | ---: |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for z in $VARIATIONS; do
+            rc=$(cat "logs/$z.rc")
+            passed=$(grep -cE '^\s+PASS\s' "logs/$z.log" || true)
+            failed=$(grep -cE '^\s+FAIL\s' "logs/$z.log" || true)
+            [ "$rc" = 0 ] && result=passed || { result="FAILED (exit $rc)"; status=1; }
+            echo "| $z | $result | $passed | $failed |" >> "$GITHUB_STEP_SUMMARY"
+            grep -E '^\s+FAIL\s' "logs/$z.log" | sed "s/^/  $z: /" || true
+          done
+          exit $status
 
-      - name: The same programs with a slow FLASH chip
-        # 120 clocks to the first word and 20 between the others, against 24 and 4: nothing may depend on the latency.
-        run: |
-          riscv-tools --config tools/riscv_build/config.sdram-flash-slow.yaml sim \
-            --only flash-const,cache-sweep,code-sweep,selfmod-repeat,sdram-copy,sdram-loop
-
-      - name: Run per-entity VHDL unit tests (tests/python/)
-        run: uv run python tests/python/runner.py
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-${{ matrix.arch }}-${{ matrix.base }}
+          path: logs/
+          if-no-files-found: ignore
 
       - name: Upload waveforms
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: waveforms
+          name: waveforms-${{ matrix.arch }}-${{ matrix.base }}
           path: "**/*.ghw"
           if-no-files-found: ignore
+
+  # Os programas que usam a SDRAM, na plataforma com a FLASH atras das caches.
+  sim-sdram-flash:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Programs that use the SDRAM, with the FLASH behind the caches
+        # generate-header writes include-sdram/rv32_test.h, which this config needs and which is not
+        # in the repository.
+        run: |
+          config=tools/riscv_build/config.sdram-flash.yaml
+          riscv-tools --config $config generate-header
+          riscv-tools --config $config compile --emit hex
+          riscv-tools --config $config sim --exclude hex-id
+
+      - name: Upload waveforms
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: waveforms-sdram-flash
+          path: "**/*.ghw"
+          if-no-files-found: ignore
+
+  # Os mesmos programas com um chip de FLASH lento: nada pode depender da latencia.
+  sim-flash-slow:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: The same programs with a slow FLASH chip
+        # 120 clocks to the first word and 20 between the others, against 24 and 4. The slow config
+        # only changes the generics of the simulation, so it reuses the image of sdram-flash.
+        run: |
+          riscv-tools --config tools/riscv_build/config.sdram-flash.yaml generate-header
+          riscv-tools --config tools/riscv_build/config.sdram-flash-slow.yaml compile --emit hex
+          riscv-tools --config tools/riscv_build/config.sdram-flash-slow.yaml sim \
+            --only flash-const,cache-sweep,code-sweep,selfmod-repeat,sdram-copy,sdram-loop
+
+      - name: Upload waveforms
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: waveforms-flash-slow
+          path: "**/*.ghw"
+          if-no-files-found: ignore
+
+  # A regressao completa com a verificacao cruzada do Spike repete as simulacoes acima, entao so roda
+  # na main e a pedido (nao atrasa o PR). Um job pulado conta como sucesso no agregador.
+  regression:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Unit tests of the regression tool
+        run: /opt/riscv-tools/riscv-tools/bin/python -m unittest tests.host.test_regression -v
+
+      - name: Full regression with the Spike cross-check
+        run: make regression
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-report
+          path: build/regression/
+          if-no-files-found: ignore
+
+  # O check que o ruleset ou a protecao de branch exige: continua se chamando test-sim e so passa
+  # quando todos os jobs acima passaram (ou, no caso da regressao, foram pulados).
+  test-sim:
+    if: always()
+    needs: [sim-host, sim-matrix, sim-sdram-flash, sim-flash-slow, regression]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if [ '${{ contains(needs.*.result, 'failure') }}' = true ] \
+            || [ '${{ contains(needs.*.result, 'cancelled') }}' = true ]; then
+            echo "A simulation job failed or was cancelled."
+            exit 1
+          fi

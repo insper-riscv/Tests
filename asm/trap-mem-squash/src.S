@@ -17,6 +17,7 @@
 
 main:
     li   x5, RV32_RAM_BASE        # x5 = RESULTS_BASE
+    sw   x0, 0x300(x5)            # the marker starts at zero: on the board the RAM keeps what an earlier program left
     la   x6, handler
     csrw mtvec, x6
     li   x25, 0x400               # inside the BOOT_ROM: the misaligned load traps

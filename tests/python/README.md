@@ -29,8 +29,9 @@ tests/python/
 ├── unittests/
 │   ├── entities/                # one file per VHDL entity (ALU.py, RAM.py, ...)
 │   │   └── data/                # fixture files an entity test's generics point at (e.g. testROM.hex)
-│   └── instructions/            # raw hand-assembled instruction-sequence tests (see "Known issue" below)
+│   ├── instructions/            # raw hand-assembled instruction-sequence tests (see "Known issue" below)
 │       └── codes/                # the .hex images those tests load
+│   └── irq/                     # the asm-irq/ programs on the core with a CLINT model (see ../../docs/en/testing/interrupt-programs.md)
 └── sim_build/                   # generated: <group>/<name>/{waves.ghw, ...} per test
 ```
 
@@ -52,7 +53,7 @@ Each entry is a test name (used as the CLI argument above) mapping to:
 | Field | Meaning |
 | :--- | :--- |
 | `toplevel` | The VHDL entity to elaborate (lowercase, matching the `.vhd`'s own entity name) |
-| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's root, e.g. `Insper-RISC-V/Core/src/I/alu.vhd` |
+| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's root, e.g. `Insper-RISC-V/Core/src/I-E/alu.vhd` |
 | `test_module` | Dotted Python path to the test file, e.g. `tests.python.unittests.entities.ALU` |
 | `parameters` | Optional: VHDL generics to pass (e.g. `ROM_FILE` for an entity that loads a memory image) |
 | `skip` / `skip_reason` | Optional: excluded from the `all` sweep with the reason printed, but still runs if invoked by name explicitly |

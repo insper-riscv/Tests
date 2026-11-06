@@ -9,7 +9,7 @@ Suíte de testes de hardware real e de simulação do núcleo RISC-V `RV32IM`, d
 - [AUTHORS.md](AUTHORS.md): autores com commits no repositório, com nome e conta do GitHub.
 - [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição, normas C23 e Python, regras de documentação e verificação antes de abrir Pull Request.
 - [CITATION.cff](CITATION.cff): metadados para citação do software.
-- riscv-tools: referência completa de cada subcomando do `riscv-tools`.
+- [riscv-tools](https://github.com/insper-riscv/Tools/blob/main/README.md): referência completa de cada subcomando do `riscv-tools`.
 - [tools/riscv_build/README.md](tools/riscv_build/README.md): convenções específicas desta suíte (formato dos testes, fatos de hardware e como escrever um teste novo).
 - [placa.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/guide/placa.md): regra permanente sobre compilar e programar a placa, e o bug de JTAG já diagnosticado.
 - [memoria.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/platform/memoria.md): arquitetura BOOT_ROM, FLASH e RAM.
@@ -28,9 +28,13 @@ Os testes de hardware real exigem uma workstation com Quartus, um runner self-ho
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `asm/`, `c/` | Os 123 testes da suíte (83 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm/`, `c/` | Os 130 testes da suíte (90 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm-hpm-reduced/` | O programa `hpm-reduced`, que espera o núcleo com 4 contadores de eventos de 40 bits e por isso fica fora do `asm/` (que roda no perfil completo); roda com `config.hpm-reduced.yaml` |
 | `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
-| `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
+| `c-sdram-update/` | Os programas de atualização de programa da FLASH, `flash-update` (atualização completa da banca B) e `flash-update-interrupted` (cabeçalho da banca B não gravado, volta à banca A); cada um recebe pela UART a imagem de `uart_input.txt` e roda com `config.sdram-flash-update.yaml` (chip rápido) e `config.sdram-flash-update-slow.yaml` (chip lento) |
+| `c-sdram-bank-b/` | O programa da banca B que os testes de atualização enviam (`update-new`), ligado a partir da banca B e empacotado como versão 2; `make flash-update-images` o reconstrói e escreve o `uart_input.txt` dos testes |
+| `tools/flash_update/` | `make_images.sh`, que constrói a imagem da banca B e a confere contra o `uart_input.txt` com `--check` |
+| `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV, `config.hpm-reduced.yaml` e `config.hpm-reduced-asm.yaml` para o núcleo de 4 contadores de 40 bits): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tests/host/` | Testes unitários do harness de UART física, sem precisar da placa |
 | `tests/python/` | Testes por entidade remanescentes: sequências de instrução cruas, todas com `skip`, no `tests.json` ([documentação](tests/python/README.md)) |
 | `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação) e `sim-fpga.yml` (simulação do topo de hardware) |
@@ -55,7 +59,31 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 
 Os programas `uart-tx`, `uart-echo` e `uart-errors` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors`.
 
+Os programas `hpm-*` cobrem os 29 índices do Zihpm. Em `asm/`, `hpm-full` espera o perfil completo (29 contadores de 64 bits), e `hpm-sweep`, `hpm-fused-high` e `hpm-inhibit-select` se ajustam ao perfil do núcleo. O `hpm-reduced` espera 4 contadores de 40 bits e roda em outra configuração:
+
+```bash
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml sim
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml sim --only hpm-sweep,hpm-fused-high,hpm-inhibit-select
+```
+
 A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação.
+
+A plataforma `modular` do submódulo roda os programas de `c/` e `asm/` em qualquer combinação de ROM e RAM internas ou externas com e sem cache de instruções e de dados, escolhida na linha de comando, sem alterar arquivo versionado. O `include-modular/` guarda o cabeçalho com o mapa dela. O exemplo roda a arquitetura C (ROM externa atrás da cache de instruções, RAM interna). As plataformas `fpga-*` das dez plataformas do submódulo usam o cabeçalho de `include-fpga-integrated/`, `include-fpga-external-instruction/` ou `include-fpga-sdram/`, conforme o mapa da RAM, e as `test-*` usam o de `include-modular/`.
+
+```bash
+ulimit -s unlimited
+riscv-tools --profile rv32im_zicclsm_zicntr_zihpm_zifencei --memory rom=ext,ram=int,icache=on,dcache=off \
+  platform sync --prefix Insper-RISC-V --source Insper-RISC-V/src/simulation/modular/config.yaml \
+  --output tools/riscv_build/config.generated.yaml
+printf 'extends: config.generated.yaml\npaths: {include_dir: tools/riscv_build/include-modular, build_dir: build, c_dir: c, asm_dir: asm}\n' \
+  > tools/riscv_build/config.variation.yaml
+riscv-tools --config tools/riscv_build/config.variation.yaml generate-header
+riscv-tools --config tools/riscv_build/config.variation.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.variation.yaml sim --exclude uart-echo,uart-tx,uart-errors
+```
+
 
 ---
 

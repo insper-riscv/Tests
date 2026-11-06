@@ -1,0 +1,22 @@
+# The update tests (c-sdram-update/): a program of bank A receives the image of bank B over the UART, updates the FLASH
+# with the controller and restarts through the boot ROM. The simulation top has the FLASH controller, the two-port storage
+# and the command chip behind it (HAS_FLASH_CONTROLLER), with a chip that erases a sector in 100 clocks of waiting and
+# programs a page in 20: the fast chip. config.sdram-flash-update-slow.yaml has the slow one.
+extends: config.platform-de0-cv.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-sdram
+  build_dir: build-sdram-flash-update
+  c_dir: c-sdram-update
+  asm_dir: asm-sdram-update
+
+sim:
+  parameters:
+    HAS_FLASH_CONTROLLER: true
+    FLASH_ERASE_LATENCY: "100"
+    FLASH_PROGRAM_LATENCY: "20"
+  # the console sends the image byte by byte (the program only stores them, so one every two scans) and the boot ROM
+  # then checks both banks again: longer than the other programs
+  env:
+    SIM_TIMEOUT_CYCLES: "12000000"
+    UART_SCANS_PER_BYTE: "2"

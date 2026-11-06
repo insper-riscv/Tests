@@ -1,0 +1,1 @@
+interrupted update: the boot ROM stayed on bank A

@@ -1,0 +1,53 @@
+{
+  "stages": [
+    {
+      "name": "internal-mem",
+      "config": "tools/riscv_build/config.yaml",
+      "description": "Os programas de asm/ e c/ na plataforma de RAM interna"
+    },
+    {
+      "name": "de0-cv-regression",
+      "config": "tools/riscv_build/config.sdram-flash-regression.yaml",
+      "description": "Os mesmos programas na plataforma com SDRAM e a FLASH atrás das caches; o resultado precisa ser o da internal-mem"
+    },
+    {
+      "name": "de0-cv-sdram",
+      "config": "tools/riscv_build/config.sdram-flash.yaml",
+      "description": "Os programas que usam a SDRAM de propósito"
+    },
+    {
+      "name": "de0-cv-update",
+      "config": "tools/riscv_build/config.sdram-flash-update.yaml",
+      "description": "A atualização de programa da FLASH (c-sdram-update/) com o chip de FLASH rápido: o programa da banca A atualiza a banca B e a boot ROM escolhe a imagem"
+    },
+    {
+      "name": "de0-cv-update-slow",
+      "config": "tools/riscv_build/config.sdram-flash-update-slow.yaml",
+      "description": "Os mesmos programas de atualização com o apagar e o gravar lentos do chip de FLASH: o resultado não pode depender da latência"
+    }
+  ],
+  "exclusions": [
+    {"stage": "de0-cv-regression", "test": "uart-echo", "reason": "Usa os pinos físicos da UART, que só o topo da placa tem; a plataforma simulada não os expõe. Coberto na internal-mem."},
+    {"stage": "de0-cv-regression", "test": "uart-tx", "reason": "Usa os pinos físicos da UART, que só o topo da placa tem; a plataforma simulada não os expõe. Coberto na internal-mem."},
+    {"stage": "de0-cv-regression", "test": "uart-errors", "reason": "Usa os pinos físicos da UART, que só o topo da placa tem; a plataforma simulada não os expõe. Coberto na internal-mem."},
+    {"stage": "de0-cv-sdram", "test": "hex-id", "reason": "Depende das chaves e do display da placa, que a simulação não tem."}
+  ],
+  "spike": {
+    "config": "tools/riscv_build/config.yaml",
+    "divergences": [
+      {"test": "cntr-cycle-monotonic", "reason": "Mede o contador de ciclos, que o Spike conta como instruções."},
+      {"test": "cntr-forwarding", "reason": "Mede ciclos por instrução, que dependem do pipeline do núcleo."},
+      {"test": "cntr-instret-exact", "reason": "Confere cycle e instret juntos, e o Spike não modela o atraso do pipeline."},
+      {"test": "cntr-muldiv-cost", "reason": "Mede o custo em ciclos de MUL e DIV, que é do núcleo."},
+      {"test": "cntr-time-rate", "reason": "Confere a taxa do contador time, que no Spike é outra."},
+      {"test": "hpm-cpi", "reason": "Confere contadores de desempenho que o Spike não implementa como o núcleo."},
+      {"test": "hpm-inhibit-select", "reason": "Seleção de eventos e inibição dos contadores de desempenho, específicas do núcleo."},
+      {"test": "misaligned-crossing", "reason": "O Spike da imagem não executa acesso desalinhado; o golden vem de modelo."},
+      {"test": "muldiv-fusion", "reason": "Mede a fusão de MUL e DIV por contadores de ciclo, que o Spike não modela."},
+      {"test": "wb-hold-crossing", "reason": "Usa acesso desalinhado, que o Spike da imagem não executa."},
+      {"test": "uart-echo", "reason": "Precisa dos pinos da UART, que o Spike não tem."},
+      {"test": "uart-errors", "reason": "Precisa dos pinos da UART, que o Spike não tem."},
+      {"test": "uart-tx", "reason": "Precisa dos pinos da UART, que o Spike não tem."}
+    ]
+  }
+}

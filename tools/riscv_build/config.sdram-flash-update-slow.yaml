@@ -1,0 +1,13 @@
+# The update tests with the slow chip: 20000 clocks of waiting for the erase of a sector and 2000 for a page. The firmware
+# polls the status, so the result must not depend on the latency.
+extends: config.sdram-flash-update.yaml
+
+paths:
+  build_dir: build-sdram-flash-update-slow
+
+sim:
+  parameters:
+    FLASH_ERASE_LATENCY: "20000"
+    FLASH_PROGRAM_LATENCY: "2000"
+  env:
+    SIM_TIMEOUT_CYCLES: "20000000"

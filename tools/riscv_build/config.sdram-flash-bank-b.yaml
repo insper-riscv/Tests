@@ -1,0 +1,14 @@
+# The program of bank B that the update tests send (c-sdram-bank-b/): linked from the end of the header page of bank B
+# and packed as the image of bank B, version 2. Only `make flash-update-images` builds with it.
+extends: config.platform-de0-cv.yaml
+
+toolchain:
+  specs: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/rv32im-fpga-bank-b.specs
+
+flash_image: {bank: B, version: 2}
+
+paths:
+  include_dir: tools/riscv_build/include-sdram
+  build_dir: build-bank-b
+  c_dir: c-sdram-bank-b
+  asm_dir: asm-sdram-bank-b
