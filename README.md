@@ -55,7 +55,7 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 
 Os programas `uart-tx`, `uart-echo` e `uart-errors` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors`.
 
-A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação.
+A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação. O programa `clint-mtip` arma o `mtimecmp` do CLINT (slot 6, `0xE0000000`) e confere que a linha MTIP, e a MSIP pelo `msip`, aparece no CSR `mip`; ele exige uma plataforma com `Interrupts` no `platform.yaml`, como a `de0-cv` do Insper-RISC-V a partir do Tools 1.9.4.
 
 ---
 

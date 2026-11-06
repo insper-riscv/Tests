@@ -10,6 +10,8 @@
 
 #define RV32_TOHOST      0x43FFFFE8   /* HTIF tohost, 8 bytes; fromhost is 8 bytes above */
 
+#define RV32_CLINT_BASE  0xE0000000   /* CLINT, slot 6 (64 KiB): msip +0x0, mtimecmp +0x4000, mtime +0xBFF8 */
+
 #ifdef __ASSEMBLER__
 /* How an assembly test ends, with the names of the riscv-arch-test model (rv32_test.h has
  * the C ones). tohost = 1 is a pass, (code << 1) | 1 a failure with that code. Clobbers
