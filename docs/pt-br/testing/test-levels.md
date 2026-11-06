@@ -90,6 +90,8 @@ O tempo de cada programa, em ticks, também é registrado, e serve de base para 
 | Comandos | `riscv-tools --config tools/riscv_build/config.yaml generate-header`, `compile --emit hex` e `sim` |
 | Custo | minutos para os 89 programas |
 
+A regressão completa roda os níveis 3 e 4 em uma execução, com a verificação cruzada no Spike e um relatório único, por `make regression` (ver `tools/regression/README.md`). Cada programa excluído tem a justificativa no plano.
+
 ## 6. Nível 4: plataforma com SDRAM
 
 A plataforma `sdram` usa a SDRAM de 64 MB como única RAM do core, através da ponte, do árbitro e do controlador, com o modelo do chip do nível 2. Há duas suítes:

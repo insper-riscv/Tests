@@ -1,0 +1,7 @@
+# The same core of 4 counters of 40 bits (config.hpm-reduced.yaml) with the programs of asm/, to run the ones
+# that adapt to the profile (hpm-sweep, hpm-fused-high and hpm-inhibit-select) on it with --only.
+extends: config.hpm-reduced.yaml
+
+paths:
+  build_dir: build-hpm-reduced-asm
+  asm_dir: asm

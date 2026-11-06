@@ -90,6 +90,8 @@ The time of each program, in ticks, is also recorded, and it is the basis for me
 | Commands | `riscv-tools --config tools/riscv_build/config.yaml generate-header`, `compile --emit hex`, and `sim` |
 | Cost | minutes for the 89 programs |
 
+The full regression runs levels 3 and 4 in one execution, with the cross-check against Spike and a single report, through `make regression` (see `tools/regression/README.en.md`). Each excluded program has its justification in the plan.
+
 ## 6. Level 4: platform with SDRAM
 
 The `sdram` platform uses the 64 MB SDRAM as the only RAM of the core, through the bridge, the arbiter, and the controller, with the chip model from level 2. There are two suites:

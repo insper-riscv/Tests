@@ -9,15 +9,6 @@ isa:
   base: i
   default_ext: ''
   canonical_order: MAFDQLCBJTPVNH
-memory:
-  boot_rom_base: 0
-  boot_rom_words: 512
-  rom_base: 2048
-  rom_words: 7680
-  ram_base: 32768
-  ram_words: 40960
-  tohost_addr: 196584
-  fromhost_addr: 196592
 paths:
   sources:
   - Insper-RISC-V/src/simulation/internal-mem/runtime/_exit.c
@@ -34,10 +25,9 @@ quartus:
   rom_mif_target: init.mif
   boot_rom_mif_target: boot_rom_init.mif
   jtag_device: '@1: 5CE(BA4|FA4) (0x02B050DD)'
-  rom_mem_instances:
-  - 1
-  - 3
-  ram_mem_instance: 2
+  ram_mem_instance: 0
+  rom_write_method: jtag_loader
+  rom_mem_instances: []
   program_wait_seconds: 15
   poll_interval_seconds: 2.5
   default_timeout_s: 15
@@ -58,21 +48,24 @@ sim:
   - Insper-RISC-V/Core/src/shared/fwd_consts.vhd
   - Insper-RISC-V/Core/src/shared/word_consts.vhd
   - Insper-RISC-V/Core/src/M/muldiv_consts.vhd
+  - Insper-RISC-V/Core/src/Zicond/zicond_consts.vhd
+  - Insper-RISC-V/Core/src/Zicsr/irq_consts.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_value_consts.vhd
   - Insper-RISC-V/Core/src/Zicsr/trap_consts.vhd
+  - Insper-RISC-V/Core/src/Zimop/zimop_consts.vhd
   - Insper-RISC-V/Common-Components/src/generic_register.vhd
   - Insper-RISC-V/Common-Components/src/adder.vhd
   - Insper-RISC-V/Common-Components/src/mux_2x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_4x1.vhd
   - Insper-RISC-V/Common-Components/src/flip_flop.vhd
   - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
-  - Insper-RISC-V/Core/src/I/alu.vhd
+  - Insper-RISC-V/Core/src/I-E/alu.vhd
   - Insper-RISC-V/Common-Components/src/onehot_decoder.vhd
   - Insper-RISC-V/Common-Components/src/mux_tree.vhd
   - Insper-RISC-V/Core/src/shared/reg_file.vhd
-  - Insper-RISC-V/Core/src/I/extender_imm.vhd
-  - Insper-RISC-V/Core/src/I/extender_ram.vhd
-  - Insper-RISC-V/Core/src/I/store_manager.vhd
+  - Insper-RISC-V/Core/src/I-E/extender_imm.vhd
+  - Insper-RISC-V/Core/src/I-E/extender_ram.vhd
+  - Insper-RISC-V/Core/src/I-E/store_manager.vhd
   - Insper-RISC-V/Core/src/Zicclsm/misaligned_unit.vhd
   - Insper-RISC-V/Core/src/shared/control_unit.vhd
   - Insper-RISC-V/Core/src/shared/bubble_mux.vhd
@@ -84,11 +77,19 @@ sim:
   - Insper-RISC-V/Core/src/M/non_restoring_divider_rv32.vhd
   - Insper-RISC-V/Core/src/M/muldiv_fusion.vhd
   - Insper-RISC-V/Core/src/M/multdiv.vhd
+  - Insper-RISC-V/Core/src/Zicond/zicond_decode.vhd
+  - Insper-RISC-V/Core/src/Zicond/zicond_unit.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_decode.vhd
+  - Insper-RISC-V/Core/src/Zihintntl/zihintntl_consts.vhd
+  - Insper-RISC-V/Core/src/Zihintpause/zihintpause_consts.vhd
+  - Insper-RISC-V/Core/src/Zihintntl/zihintntl_decode.vhd
+  - Insper-RISC-V/Core/src/Zihintpause/zihintpause_decode.vhd
+  - Insper-RISC-V/Core/src/Zimop/zimop_decode.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_addr_consts.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_event_consts.vhd
   - Insper-RISC-V/Core/src/Zicntr/counter64.vhd
   - Insper-RISC-V/Core/src/Zicntr/tick_divider.vhd
+  - Insper-RISC-V/Core/src/Zihpm/hpm_counter_bank.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_file.vhd
   - Insper-RISC-V/Core/src/Zicsr/trap_unit.vhd
   - Insper-RISC-V/Core/src/Zifencei/fencei_unit.vhd
@@ -103,33 +104,61 @@ sim:
   - Insper-RISC-V/Core/src/core/stage_mem.vhd
   - Insper-RISC-V/Core/src/core/stage_wb.vhd
   - Insper-RISC-V/Core/src/core/core.vhd
-  - Insper-RISC-V/Memory/src/ram/soc/ram_simulation.vhd
-  - Insper-RISC-V/Memory/src/rom/soc/rom_simulation.vhd
+  - Insper-RISC-V/Memory/src/RAM/SoC/ram_simulation.vhd
+  - Insper-RISC-V/Memory/src/ROM/SoC/rom_simulation.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uart2BusTop_pkg.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/baudGen.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartRx.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartTx.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartTop.vhd
+  - Insper-RISC-V/Peripherals/src/UART/serial/uart_fifo.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/uart.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/clk_gen_3way.vhd
+  - Insper-RISC-V/src/simulation/internal-mem/rtl/internal_mem_map_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/rv32i3stage_core_sim_test.vhd
   test_module: testbench.test_c_program
   python_path:
   - Insper-RISC-V/src/simulation/internal-mem
   env:
-    SIM_TIMEOUT_CYCLES: '500000'
+    SIM_TIMEOUT_CYCLES: '1000000'
+    TOHOST_ADDR: '0x0002FFE8'
+    STDOUT_ADDR: '0x0002FBE0'
   ghdl_std: 08
   parameters:
     BOOT_ROM_FILE: '{boot_rom_hex_path}'
     ROM_FILE: '{hex_path}'
-    boot_rom_addr_width: '9'
+    boot_rom_addr_width: '10'
     rom_addr_width: '13'
     ram_addr_width: '16'
+    HAS_E: false
+    HAS_M: true
+    HAS_ZMMUL: false
     HAS_ZICSR: true
     HAS_ZICNTR: true
     HAS_ZIHPM: true
+    HAS_ZIMOP: true
+    HAS_ZICOND: true
+    HAS_ZIHINTNTL: false
+    HAS_ZIHINTPAUSE: false
+    HAS_ZIFENCEI: false
+    HAS_ZICCLSM: true
+    ROM_EXTERNAL: false
+    RAM_EXTERNAL: false
+    HAS_ICACHE: false
+    HAS_DCACHE: false
+    ICACHE_SIZE_BITS: '256'
+    DCACHE_SIZE_BITS: '256'
 emulator:
   sources:
   - Insper-RISC-V/src/simulation/internal-mem/runtime/spike_exit.S
   gcc_flags:
   - -DRV32_SPIKE
+memory:
+  boot_rom_base: 0
+  boot_rom_words: 1024
+  rom_base: 4096
+  rom_words: 7168
+  ram_base: 32768
+  ram_words: 40960
+  tohost_addr: 196584
+  fromhost_addr: 196592

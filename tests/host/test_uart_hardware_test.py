@@ -20,9 +20,11 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         self.assertEqual(uart_hw.DEFAULT_PAYLOAD, b"RX test\r\n")
         self.assertEqual(len(uart_hw.DEFAULT_PAYLOAD), uart_hw.ECHO_BYTE_COUNT)
         self.assertEqual(uart_hw.UART_TX_EXPECTED, b"Hello, world!\r\n")
-        self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ATR")
-        self.assertEqual(uart_hw.UART_ERRORS_READY, b"OB")
-        self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, b"\x12\x34")
+        self.assertEqual(uart_hw.UART_TX_FIFO_PAYLOAD, b"ABCDEFGHIJKLMNOPQ")
+        self.assertEqual(uart_hw.UART_RX_FIFO_PROMPT, b"R")
+        self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ABCDEFGHIJKLMNOPQR")
+        self.assertEqual(uart_hw.UART_ERRORS_READY, b"O")
+        self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, bytes(range(17)))
         self.assertEqual(uart_hw.UART_BURST_PAYLOAD, bytes(range(32)))
         self.assertEqual(uart_hw.UART_ERRORS_FINAL, b"P")
 
@@ -169,13 +171,23 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         sleep.assert_called_once()
 
     def test_load_and_start_flushes_before_restart_pulse(self) -> None:
-        events = []
+        events: list[str] = []
+
+        def record_write(*_args: object) -> None:
+            events.append("write")
+
+        def record_flush(*_args: object) -> None:
+            events.append("flush")
+
+        def record_pulse(*_args: object) -> None:
+            events.append("pulse")
+
         link = mock.sentinel.link
         mif = Path("uart-tx.mif")
         cfg = {
             "quartus": {
-                "rom_mem_instances": [1, 3],
-                "ram_mem_instance": 2,
+                "rom_mem_instances": [0, 2],
+                "ram_mem_instance": 1,
             },
             "memory": {
                 "ram_base": 0x8000,
@@ -186,31 +198,31 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             mock.patch.object(
                 uart_hw.rom_writer,
                 "write_rom",
-                side_effect=lambda *_: events.append("write"),
+                side_effect=record_write,
             ) as write_rom,
             mock.patch.object(
                 uart_hw.termios,
                 "tcflush",
-                side_effect=lambda *_: events.append("flush"),
+                side_effect=record_flush,
             ),
             mock.patch.object(
                 uart_hw.htif,
                 "pulse_fromhost",
-                side_effect=lambda *_: events.append("pulse"),
+                side_effect=record_pulse,
             ) as pulse,
         ):
             uart_hw.load_and_start_firmware(7, link, cfg, mif)
 
         self.assertEqual(events, ["write", "flush", "pulse"])
-        write_rom.assert_called_once_with(link, [1, 3], mif)
-        pulse.assert_called_once_with(link, 2, 0x8000, 0x2FFF0)
+        write_rom.assert_called_once_with(link, [0, 2], mif)
+        pulse.assert_called_once_with(link, 1, 0x8000, 0x2FFF0)
 
     def test_uart_tx_bytes_emitted_during_restart_are_not_lost(self) -> None:
         read_end, write_end = os.pipe()
         cfg = {
             "quartus": {
-                "rom_mem_instances": [1, 3],
-                "ram_mem_instance": 2,
+                "rom_mem_instances": [0, 2],
+                "ram_mem_instance": 1,
             },
             "memory": {
                 "ram_base": 0x8000,
@@ -278,12 +290,17 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         self.assertEqual(
             receive.call_args_list,
             [
-                mock.call(fd, uart_hw.UART_ERRORS_PREFIX, timeout, "UART TX_DROPPED"),
+                mock.call(
+                    fd,
+                    uart_hw.UART_ERRORS_PREFIX,
+                    timeout,
+                    "UART TX FIFO overflow/W1C",
+                ),
                 mock.call(
                     fd,
                     uart_hw.UART_ERRORS_READY,
                     timeout,
-                    "UART RX_OVERRUN/W1C",
+                    "UART RX FIFO overflow/W1C",
                 ),
                 mock.call(fd, expected_final, timeout, "UART burst"),
             ],

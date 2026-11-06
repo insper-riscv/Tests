@@ -6,8 +6,8 @@ side.  It verifies that the existing Quartus bitstream was built from the
 reprograms that bitstream to start from a clean state, and checks the exact
 echo plus the JTAG tohost. It can then replace FLASH over JTAG with
 ``uart-tx`` and ``uart-errors``, restart through the boot ROM, and validate
-TX/RX, sticky error flags, W1C clearing and a raw byte burst without another
-Quartus compile.
+TX/RX FIFOs, sticky error flags, W1C clearing and a raw byte burst without
+another Quartus compile.
 """
 
 from __future__ import annotations
@@ -38,9 +38,11 @@ DEFAULT_CONFIG = REPOSITORY_ROOT / "tools/riscv_build/config.yaml"
 DEFAULT_PORT = Path("/dev/ttyACM0")
 DEFAULT_PAYLOAD = b"RX test\r\n"
 UART_TX_EXPECTED = b"Hello, world!\r\n"
-UART_ERRORS_PREFIX = b"ATR"
-UART_ERRORS_READY = b"OB"
-UART_ERRORS_RX_INPUT = bytes((0x12, 0x34))
+UART_TX_FIFO_PAYLOAD = b"ABCDEFGHIJKLMNOPQ"
+UART_RX_FIFO_PROMPT = b"R"
+UART_ERRORS_PREFIX = UART_TX_FIFO_PAYLOAD + UART_RX_FIFO_PROMPT
+UART_ERRORS_READY = b"O"
+UART_ERRORS_RX_INPUT = bytes(range(17))
 UART_BURST_PAYLOAD = bytes(range(32))
 UART_ERRORS_FINAL = b"P"
 DEFAULT_TIMEOUT_SECONDS = 2.0
@@ -355,7 +357,7 @@ def exchange_errors_and_burst(
         fd,
         UART_ERRORS_PREFIX,
         timeout_s,
-        "UART TX_DROPPED",
+        "UART TX FIFO overflow/W1C",
     )
 
     write_all(fd, UART_ERRORS_RX_INPUT, timeout_s)
@@ -363,7 +365,7 @@ def exchange_errors_and_burst(
         fd,
         UART_ERRORS_READY,
         timeout_s,
-        "UART RX_OVERRUN/W1C",
+        "UART RX FIFO overflow/W1C",
     )
 
     write_all(fd, UART_BURST_PAYLOAD, timeout_s)
@@ -524,12 +526,12 @@ def run_hardware_test(args: argparse.Namespace) -> None:
                 fd,
                 args.timeout,
             )
-            print(f"RX[{len(prefix)}] TX_DROPPED/W1C: {format_bytes(prefix)}")
+            print(f"RX[{len(prefix)}] TX FIFO overflow/W1C: {format_bytes(prefix)}")
             print(
-                f"TX[{len(UART_ERRORS_RX_INPUT)}] RX_OVERRUN stimulus: "
+                f"TX[{len(UART_ERRORS_RX_INPUT)}] RX FIFO overflow stimulus: "
                 f"{format_bytes(UART_ERRORS_RX_INPUT)}"
             )
-            print(f"RX[{len(ready)}] RX_OVERRUN/W1C: {format_bytes(ready)}")
+            print(f"RX[{len(ready)}] RX FIFO overflow/W1C: {format_bytes(ready)}")
             print(
                 f"TX[{len(UART_BURST_PAYLOAD)}] burst: "
                 f"{format_bytes(UART_BURST_PAYLOAD)}"
@@ -538,7 +540,7 @@ def run_hardware_test(args: argparse.Namespace) -> None:
                 f"RX[{len(burst_and_final)}] burst + PASS marker: "
                 f"{format_bytes(burst_and_final)}"
             )
-            print("UART ERRORS, W1C AND BURST: PASS")
+            print("UART FIFOS, ERRORS, W1C AND BURST: PASS")
 
             errors_tohost = wait_for_result_tohost(link, cfg, args.timeout)
             validate_tohost(errors_tohost)

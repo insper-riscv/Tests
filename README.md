@@ -28,9 +28,10 @@ Os testes de hardware real exigem uma workstation com Quartus, um runner self-ho
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `asm/`, `c/` | Os 123 testes da suíte (83 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm/`, `c/` | Os 130 testes da suíte (90 em assembly, 40 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
+| `asm-hpm-reduced/` | O programa `hpm-reduced`, que espera o núcleo com 4 contadores de eventos de 40 bits e por isso fica fora do `asm/` (que roda no perfil completo); roda com `config.hpm-reduced.yaml` |
 | `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
-| `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
+| `tools/riscv_build/` | Configuração deste projeto para o `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` e as variantes dela para a DE0-CV, `config.hpm-reduced.yaml` e `config.hpm-reduced-asm.yaml` para o núcleo de 4 contadores de 40 bits): estende o `config.platform-*.yaml` da plataforma, que `riscv-tools platform sync` gera a partir do submódulo [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) (toolchain, mapa de memória, runtime, projeto do Quartus, simulação), e acrescenta só os caminhos dos testes |
 | `tests/host/` | Testes unitários do harness de UART física, sem precisar da placa |
 | `tests/python/` | Testes por entidade remanescentes: sequências de instrução cruas, todas com `skip`, no `tests.json` ([documentação](tests/python/README.md)) |
 | `.github/workflows/` | `real.yml` (hardware real), `sim.yml` (simulação) e `sim-fpga.yml` (simulação do topo de hardware) |
@@ -54,6 +55,15 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 ```
 
 Os programas `uart-tx`, `uart-echo` e `uart-errors` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors`.
+
+Os programas `hpm-*` cobrem os 29 índices do Zihpm. Em `asm/`, `hpm-full` espera o perfil completo (29 contadores de 64 bits), e `hpm-sweep`, `hpm-fused-high` e `hpm-inhibit-select` se ajustam ao perfil do núcleo. O `hpm-reduced` espera 4 contadores de 40 bits e roda em outra configuração:
+
+```bash
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml sim
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml sim --only hpm-sweep,hpm-fused-high,hpm-inhibit-select
+```
 
 A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação.
 

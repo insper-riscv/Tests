@@ -27,8 +27,9 @@ Real-hardware tests require a workstation with Quartus, a self-hosted GitHub Act
 
 | Path | Contents |
 | :--- | :--- |
-| `asm/`, `c/` | The 123 tests of the suite (83 in assembly and 40 in C), one `<name>/src.S` or `<name>/src.c` per folder |
-| `tools/riscv_build/` | This project's configuration for `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` and its variants for the DE0-CV): it extends the `config.platform-*.yaml` that `riscv-tools platform sync` generates from the [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) submodule (toolchain, memory map, runtime, Quartus project, and simulation), and adds only the test paths |
+| `asm/`, `c/` | The 130 tests of the suite (90 in assembly and 40 in C), one `<name>/src.S` or `<name>/src.c` per folder |
+| `asm-hpm-reduced/` | The `hpm-reduced` program, which expects the core with 4 event counters of 40 bits and so lives apart from `asm/` (which runs on the full profile); it runs with `config.hpm-reduced.yaml` |
+| `tools/riscv_build/` | This project's configuration for `riscv-tools` (`config.yaml`, `config.fpga-sim.yaml`, `config.sdram-flash.yaml` and its variants for the DE0-CV, `config.hpm-reduced.yaml` and `config.hpm-reduced-asm.yaml` for the core of 4 counters of 40 bits): it extends the `config.platform-*.yaml` that `riscv-tools platform sync` generates from the [Insper-RISC-V](https://github.com/insper-riscv/Insper-RISC-V) submodule (toolchain, memory map, runtime, Quartus project, and simulation), and adds only the test paths |
 | `tests/python/` | Remaining per-entity tests: raw instruction sequences, all marked `skip`, in `tests.json` ([documentation](tests/python/README.md)) |
 | `.github/workflows/` | `real.yml` (real hardware), `sim.yml` (simulation), and `sim-fpga.yml` (hardware-top simulation) |
 | `docs/` | Investigated bugs in `docs/en/bugs/`; the memory architecture, boot, runtime, and board programming are in the `docs/` of the `Insper-RISC-V` submodule |
@@ -45,6 +46,15 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 ```
 
 The `uart-tx`, `uart-echo` and `uart-errors` programs run in the simulation of the `internal-mem` platform and on the board, because they use the serial pins of the hardware top. In the simulations of the `sdram` and `sdram-flash` platforms, whose tops only have the UART over JTAG, they are left out with `--exclude uart-echo,uart-tx,uart-errors`.
+
+The `hpm-*` programs cover the 29 Zihpm indices. In `asm/`, `hpm-full` expects the full profile (29 counters of 64 bits), while `hpm-sweep`, `hpm-fused-high` and `hpm-inhibit-select` adapt to the profile of the core. `hpm-reduced` expects 4 counters of 40 bits and runs in another configuration:
+
+```bash
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced.yaml sim
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml compile --emit hex
+riscv-tools --config tools/riscv_build/config.hpm-reduced-asm.yaml sim --only hpm-sweep,hpm-fused-high,hpm-inhibit-select
+```
 
 The simulation of the `de0-cv` (`config.sdram-flash.yaml`) runs every program of `c-sdram/` and `asm-sdram/`, `flash-const` and `cpi-kernels` included, which need the FLASH behind the caches. Only `hex-id` is left out, because its pauses are made for a person to look at the display on the board; the `display` program covers the write and the read of the register in the simulation.
 

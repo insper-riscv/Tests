@@ -1,6 +1,6 @@
 [project]
 name = "riscv-workstation-tests"
-version = "0.1.0"
+version = "0.1.5"
 description = "Real-hardware + simulation test suite for RV32IM, driven by riscv-tools (installed in the CI image)."
 license = "Apache-2.0"
 # Same Python as the ci-* images of Infra, which also carry riscv-tools.

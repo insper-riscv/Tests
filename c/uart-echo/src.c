@@ -1,40 +1,62 @@
 // RV32_TEST_KIND: unit
+#include <stdint.h>
+
 #include "rv32_test.h"
 
-#define UART_BASE      0xC0000000u
-#define UART_TX_DATA   (*(volatile unsigned int *)(UART_BASE + 0x00u))
-#define UART_RX_DATA   (*(volatile unsigned int *)(UART_BASE + 0x04u))
-#define UART_STATUS    (*(volatile unsigned int *)(UART_BASE + 0x08u))
+/* Endereço do registrador de dados de transmissão da UART. */
+static constexpr uintptr_t UART_TX_DATA_ADDRESS = UINT32_C(0xC0000000);
+/* Endereço do registrador de dados de recepção da UART. */
+static constexpr uintptr_t UART_RX_DATA_ADDRESS = UINT32_C(0xC0000004);
+/* Endereço do registrador de estado da UART. */
+static constexpr uintptr_t UART_STATUS_ADDRESS = UINT32_C(0xC0000008);
+/* Máscara que indica a presença de um byte na FIFO de recepção. */
+static constexpr uint32_t UART_RX_VALID = UINT32_C(1) << 0;
+/* Máscara que indica espaço disponível na FIFO de transmissão. */
+static constexpr uint32_t UART_TX_READY = UINT32_C(1) << 1;
+/* Máscara que indica transmissor físico e FIFO completamente ociosos. */
+static constexpr uint32_t UART_TX_IDLE = UINT32_C(1) << 6;
+/* Quantidade de bytes recebidos e devolvidos pelo programa. */
+static constexpr uint32_t ECHO_BYTE_COUNT = UINT32_C(9);
 
-#define UART_RX_VALID  (1u << 0)
-#define UART_TX_READY  (1u << 1)
-
-#define ECHO_BYTE_COUNT 9u
-
-static unsigned char uart_getc(void)
+/* Converte um endereço MMIO em ponteiro para registrador de 32 bits. */
+static volatile uint32_t *uart_register(uintptr_t address)
 {
-    while ((UART_STATUS & UART_RX_VALID) == 0u) {
-    }
-
-    return (unsigned char)(UART_RX_DATA & 0xFFu);
+    return (volatile uint32_t *)address;
 }
 
-static void uart_putc(unsigned char value)
+/* Lê o estado atual da UART. */
+static uint32_t uart_status(void)
 {
-    while ((UART_STATUS & UART_TX_READY) == 0u) {
-    }
-
-    UART_TX_DATA = value;
+    return *uart_register(UART_STATUS_ADDRESS);
 }
 
+/* Aguarda e remove o próximo byte da FIFO de recepção. */
+static uint8_t uart_getc(void)
+{
+    while ((uart_status() & UART_RX_VALID) == UINT32_C(0)) {
+    }
+
+    return (uint8_t)(*uart_register(UART_RX_DATA_ADDRESS) & UINT32_C(0xFF));
+}
+
+/* Aguarda espaço e insere um byte na FIFO de transmissão. */
+static void uart_putc(uint8_t value)
+{
+    while ((uart_status() & UART_TX_READY) == UINT32_C(0)) {
+    }
+
+    *uart_register(UART_TX_DATA_ADDRESS) = value;
+}
+
+/* Ecoa nove bytes e encerra após a transmissão física do último byte. */
 int main(void)
 {
-    for (unsigned int i = 0; i < ECHO_BYTE_COUNT; ++i) {
+    for (uint32_t index = 0; index < ECHO_BYTE_COUNT; ++index) {
         uart_putc(uart_getc());
     }
 
-    /* Aguarda a transmissão física do último byte. */
-    while ((UART_STATUS & UART_TX_READY) == 0u) {
+    /* TX_READY indica espaço na FIFO; TX_IDLE confirma o último stop bit. */
+    while ((uart_status() & UART_TX_IDLE) == UINT32_C(0)) {
     }
 
     RV32_PASS();
