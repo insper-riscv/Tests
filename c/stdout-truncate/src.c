@@ -13,6 +13,10 @@ struct stdout_buffer {
     volatile char data[1024];
 };
 
+// This test measures only the RAM mirror. Serializing 1025 bytes at 115200
+// baud would test UART timing instead and exceed the generic suite timeout.
+volatile unsigned int rv32_stdio_uart_enabled = 0;
+
 int main(void) {
     const struct stdout_buffer *out = (const struct stdout_buffer *)STDOUT_BASE;
 

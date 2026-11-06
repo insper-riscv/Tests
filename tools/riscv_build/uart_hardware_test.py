@@ -5,9 +5,9 @@ side.  It verifies that the existing Quartus bitstream was built from the
 ``uart-echo`` image, opens the Pico/Debug Probe UART in raw 115200 8N1 mode,
 reprograms that bitstream to start from a clean state, and checks the exact
 echo plus the JTAG tohost. It can then replace FLASH over JTAG with
-``uart-tx`` and ``uart-errors``, restart through the boot ROM, and validate
-TX/RX, sticky error flags, W1C clearing and a raw byte burst without another
-Quartus compile.
+``uart-tx``, ``uart-errors`` and ``uart-stdio``, restart through the boot ROM,
+and validate TX/RX FIFOs, sticky error flags, W1C clearing, a raw byte burst,
+and picolibc ``printf``/``scanf`` without another Quartus compile.
 """
 
 from __future__ import annotations
@@ -38,11 +38,16 @@ DEFAULT_CONFIG = REPOSITORY_ROOT / "tools/riscv_build/config.yaml"
 DEFAULT_PORT = Path("/dev/ttyACM0")
 DEFAULT_PAYLOAD = b"RX test\r\n"
 UART_TX_EXPECTED = b"Hello, world!\r\n"
-UART_ERRORS_PREFIX = b"ATR"
-UART_ERRORS_READY = b"OB"
-UART_ERRORS_RX_INPUT = bytes((0x12, 0x34))
+UART_TX_FIFO_PAYLOAD = b"ABCDEFGHIJKLMNOPQ"
+UART_RX_FIFO_PROMPT = b"R"
+UART_ERRORS_PREFIX = UART_TX_FIFO_PAYLOAD + UART_RX_FIFO_PROMPT
+UART_ERRORS_READY = b"O"
+UART_ERRORS_RX_INPUT = bytes(range(17))
 UART_BURST_PAYLOAD = bytes(range(32))
 UART_ERRORS_FINAL = b"P"
+UART_STDIO_PROMPT = b"READY\n"
+UART_STDIO_INPUT = b"UART 42\n"
+UART_STDIO_RESULT = b"Hello, UART! value=42\n"
 DEFAULT_TIMEOUT_SECONDS = 2.0
 STARTUP_DELAY_SECONDS = 0.20
 QUIET_WINDOW_SECONDS = 0.10
@@ -52,6 +57,7 @@ ECHO_BYTE_COUNT = 9
 UART_ECHO_TEST = "uart-echo"
 UART_TX_TEST = "uart-tx"
 UART_ERRORS_TEST = "uart-errors"
+UART_STDIO_TEST = "uart-stdio"
 ALL_TESTS = "all"
 
 
@@ -69,10 +75,12 @@ class Artifacts:
     echo_mif: Path
     tx_mif: Path | None
     errors_mif: Path | None
+    stdio_mif: Path | None
     active_mif: Path
     echo_mif_sha256: str
     tx_mif_sha256: str | None
     errors_mif_sha256: str | None
+    stdio_mif_sha256: str | None
 
 
 def format_bytes(payload: bytes) -> str:
@@ -125,6 +133,7 @@ def validate_artifacts(
     echo_mif = build_dir / "real/uart-echo.mif"
     tx_mif = build_dir / "real/uart-tx.mif"
     errors_mif = build_dir / "real/uart-errors.mif"
+    stdio_mif = build_dir / "real/uart-stdio.mif"
     project_dir = (root / cfg["quartus"]["project_dir"]).resolve()
     active_mif = project_dir / cfg["quartus"]["rom_mif_target"]
     sof_file = cfg["quartus"]["sof_file"]
@@ -139,6 +148,10 @@ def validate_artifacts(
         _required_file(errors_mif, "compiled uart-errors MIF")
     else:
         errors_mif = None
+    if selected_test in (UART_STDIO_TEST, ALL_TESTS):
+        _required_file(stdio_mif, "compiled uart-stdio MIF")
+    else:
+        stdio_mif = None
     _required_file(active_mif, "Quartus active MIF")
     _required_file(sof_path, "Quartus SOF")
 
@@ -160,6 +173,7 @@ def validate_artifacts(
         echo_mif=echo_mif,
         tx_mif=tx_mif,
         errors_mif=errors_mif,
+        stdio_mif=stdio_mif,
         active_mif=active_mif,
         echo_mif_sha256=hashlib.sha256(echo_image).hexdigest(),
         tx_mif_sha256=(
@@ -170,6 +184,11 @@ def validate_artifacts(
         errors_mif_sha256=(
             hashlib.sha256(errors_mif.read_bytes()).hexdigest()
             if errors_mif is not None
+            else None
+        ),
+        stdio_mif_sha256=(
+            hashlib.sha256(stdio_mif.read_bytes()).hexdigest()
+            if stdio_mif is not None
             else None
         ),
     )
@@ -355,7 +374,7 @@ def exchange_errors_and_burst(
         fd,
         UART_ERRORS_PREFIX,
         timeout_s,
-        "UART TX_DROPPED",
+        "UART TX FIFO overflow/W1C",
     )
 
     write_all(fd, UART_ERRORS_RX_INPUT, timeout_s)
@@ -363,7 +382,7 @@ def exchange_errors_and_burst(
         fd,
         UART_ERRORS_READY,
         timeout_s,
-        "UART RX_OVERRUN/W1C",
+        "UART RX FIFO overflow/W1C",
     )
 
     write_all(fd, UART_BURST_PAYLOAD, timeout_s)
@@ -374,6 +393,24 @@ def exchange_errors_and_burst(
         "UART burst",
     )
     return prefix, ready, burst_and_final
+
+
+def exchange_stdio(fd: int, timeout_s: float) -> tuple[bytes, bytes]:
+    """Run the prompt/input/result protocol of the picolibc stdio test."""
+    prompt = receive_expected(
+        fd,
+        UART_STDIO_PROMPT,
+        timeout_s,
+        "UART stdio printf prompt",
+    )
+    write_all(fd, UART_STDIO_INPUT, timeout_s)
+    result = receive_expected(
+        fd,
+        UART_STDIO_RESULT,
+        timeout_s,
+        "UART stdio scanf/printf result",
+    )
+    return prompt, result
 
 
 def read_result_tohost(link: JtagLink, cfg: dict[str, Any]) -> int:
@@ -459,6 +496,11 @@ def run_hardware_test(args: argparse.Namespace) -> None:
             f"  uart-errors MIF: {artifacts.errors_mif}\n"
             f"  uart-errors SHA256: {artifacts.errors_mif_sha256}"
         )
+    if artifacts.stdio_mif is not None:
+        print(
+            f"  uart-stdio MIF: {artifacts.stdio_mif}\n"
+            f"  uart-stdio SHA256: {artifacts.stdio_mif_sha256}"
+        )
 
     with serial_session(args.port) as fd:
         print(f"UART: {args.port}, {BAUD_RATE} 8N1 raw")
@@ -524,12 +566,12 @@ def run_hardware_test(args: argparse.Namespace) -> None:
                 fd,
                 args.timeout,
             )
-            print(f"RX[{len(prefix)}] TX_DROPPED/W1C: {format_bytes(prefix)}")
+            print(f"RX[{len(prefix)}] TX FIFO overflow/W1C: {format_bytes(prefix)}")
             print(
-                f"TX[{len(UART_ERRORS_RX_INPUT)}] RX_OVERRUN stimulus: "
+                f"TX[{len(UART_ERRORS_RX_INPUT)}] RX FIFO overflow stimulus: "
                 f"{format_bytes(UART_ERRORS_RX_INPUT)}"
             )
-            print(f"RX[{len(ready)}] RX_OVERRUN/W1C: {format_bytes(ready)}")
+            print(f"RX[{len(ready)}] RX FIFO overflow/W1C: {format_bytes(ready)}")
             print(
                 f"TX[{len(UART_BURST_PAYLOAD)}] burst: "
                 f"{format_bytes(UART_BURST_PAYLOAD)}"
@@ -538,12 +580,33 @@ def run_hardware_test(args: argparse.Namespace) -> None:
                 f"RX[{len(burst_and_final)}] burst + PASS marker: "
                 f"{format_bytes(burst_and_final)}"
             )
-            print("UART ERRORS, W1C AND BURST: PASS")
+            print("UART FIFOS, ERRORS, W1C AND BURST: PASS")
 
             errors_tohost = wait_for_result_tohost(link, cfg, args.timeout)
             validate_tohost(errors_tohost)
             print(f"uart-errors TOHOST={errors_tohost}: PASS")
             completed_tests.append(UART_ERRORS_TEST)
+
+        if args.test in (UART_STDIO_TEST, ALL_TESTS):
+            if artifacts.stdio_mif is None:
+                raise UartHardwareTestError(
+                    "uart-stdio was selected without a validated uart-stdio MIF"
+                )
+            print(f"Loading {UART_STDIO_TEST} through JTAG...")
+            load_and_start_firmware(fd, link, cfg, artifacts.stdio_mif)
+            prompt, result = exchange_stdio(fd, args.timeout)
+            print(f"RX[{len(prompt)}] printf prompt: {format_bytes(prompt)}")
+            print(
+                f"TX[{len(UART_STDIO_INPUT)}] scanf input: "
+                f"{format_bytes(UART_STDIO_INPUT)}"
+            )
+            print(f"RX[{len(result)}] printf result: {format_bytes(result)}")
+            print("UART PICOLIBC PRINTF/SCANF: PASS")
+
+            stdio_tohost = wait_for_result_tohost(link, cfg, args.timeout)
+            validate_tohost(stdio_tohost)
+            print(f"uart-stdio TOHOST={stdio_tohost}: PASS")
+            completed_tests.append(UART_STDIO_TEST)
 
     print(f"INTEGRATED UART HARDWARE TEST: PASS ({', '.join(completed_tests)})")
 
@@ -552,8 +615,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser."""
     parser = argparse.ArgumentParser(
         description=(
-            "Validate uart-echo, uart-tx and uart-errors on the physical UART "
-            "plus the RV32 PASS in tohost. Close picocom before running."
+            "Validate uart-echo, uart-tx, uart-errors and uart-stdio on the "
+            "physical UART plus the RV32 PASS in tohost. Close picocom before "
+            "running."
         )
     )
     parser.add_argument("--port", type=Path, default=DEFAULT_PORT)
@@ -561,7 +625,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, default=REPOSITORY_ROOT)
     parser.add_argument(
         "--test",
-        choices=(ALL_TESTS, UART_ECHO_TEST, UART_TX_TEST, UART_ERRORS_TEST),
+        choices=(
+            ALL_TESTS,
+            UART_ECHO_TEST,
+            UART_TX_TEST,
+            UART_ERRORS_TEST,
+            UART_STDIO_TEST,
+        ),
         default=ALL_TESTS,
         help=(
             "test to validate (default: all); every selection first runs the "

@@ -61,7 +61,7 @@ jobs:
 
       - name: Run sim tests
         # The generic top exposes UART_RX/UART_TX. The same invocation runs
-        # uart-tx, uart-echo and uart-errors beside every other program.
+        # uart-tx, uart-echo, uart-errors and uart-stdio beside every other program.
         run: riscv-tools --config tools/riscv_build/config.yaml sim
 
       - name: Existing programs on the platform with the FLASH behind the caches
@@ -71,7 +71,7 @@ jobs:
           riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml generate-header
           riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml compile --emit hex
           riscv-tools --config tools/riscv_build/config.sdram-flash-regression.yaml sim \
-            --exclude uart-echo,uart-tx,uart-errors
+            --exclude uart-echo,uart-tx,uart-errors,uart-stdio
 
       - name: Programs that use the SDRAM, with the FLASH behind the caches
         run: |

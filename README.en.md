@@ -39,12 +39,18 @@ Real-hardware tests require a workstation with Quartus, a self-hosted GitHub Act
 riscv-tools --config tools/riscv_build/config.yaml generate-header
 riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   # real hardware
 riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulation
-riscv-tools --config tools/riscv_build/config.yaml run                  # real-hardware suite
-riscv-tools --config tools/riscv_build/config.yaml sim                  # simulation suite
+uv run python -m unittest discover -s tests/host -v                     # UART harness, no board
+riscv-tools --config tools/riscv_build/config.yaml sim                  # includes all four UART tests
+
+# real hardware: one synthesis, dedicated physical UART, then tohost/JTAG
+riscv-tools --config tools/riscv_build/config.yaml program build/real/uart-echo.mif
+uv run python tools/riscv_build/uart_hardware_test.py --skip-program
+riscv-tools --config tools/riscv_build/config.yaml run \
+  --exclude uart-echo,uart-tx,uart-errors,uart-stdio --skip-reconfigure
 riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/internal-mem/platform.yaml   # memory map (in the platform)
 ```
 
-The `uart-tx`, `uart-echo` and `uart-errors` programs run in the simulation of the `internal-mem` platform and on the board, because they use the serial pins of the hardware top. In the simulations of the `sdram` and `sdram-flash` platforms, whose tops only have the UART over JTAG, they are left out with `--exclude uart-echo,uart-tx,uart-errors`.
+The `uart-tx`, `uart-echo`, `uart-errors`, and `uart-stdio` programs run in the simulation of the `internal-mem` platform and on the board because they use the serial pins of the hardware top. `uart-stdio` integrates picolibc `printf` and `scanf` with the TX/RX queues. In the simulations of the `sdram` and `sdram-flash` platforms, whose tops only have the UART over JTAG, they are left out with `--exclude uart-echo,uart-tx,uart-errors,uart-stdio`.
 
 The simulation of the `de0-cv` (`config.sdram-flash.yaml`) runs every program of `c-sdram/` and `asm-sdram/`, `flash-const` and `cpi-kernels` included, which need the FLASH behind the caches. Only `hex-id` is left out, because its pauses are made for a person to look at the display on the board; the `display` program covers the write and the read of the register in the simulation.
 

@@ -43,17 +43,17 @@ riscv-tools --config tools/riscv_build/config.yaml generate-header
 riscv-tools --config tools/riscv_build/config.yaml compile --emit mif   # hardware real
 riscv-tools --config tools/riscv_build/config.yaml compile --emit hex   # simulação
 uv run python -m unittest discover -s tests/host -v                            # harness UART, sem placa
-riscv-tools --config tools/riscv_build/config.yaml sim                  # inclui uart-tx, uart-echo e uart-errors
+riscv-tools --config tools/riscv_build/config.yaml sim                  # inclui os quatro testes UART
 
 # hardware real: uma síntese, UART física dedicada, depois tohost/JTAG
 riscv-tools --config tools/riscv_build/config.yaml program build/real/uart-echo.mif
 uv run python tools/riscv_build/uart_hardware_test.py --skip-program
 riscv-tools --config tools/riscv_build/config.yaml run \
-  --exclude uart-echo,uart-tx,uart-errors --skip-reconfigure
+  --exclude uart-echo,uart-tx,uart-errors,uart-stdio --skip-reconfigure
 riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/internal-mem/platform.yaml   # mapa de memória (na plataforma)
 ```
 
-Os programas `uart-tx`, `uart-echo` e `uart-errors` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors`.
+Os programas `uart-tx`, `uart-echo`, `uart-errors` e `uart-stdio` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. `uart-stdio` integra o `printf` e o `scanf` da picolibc com as filas TX/RX. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors,uart-stdio`.
 
 A simulação da `de0-cv` (`config.sdram-flash.yaml`) roda todos os programas de `c-sdram/` e `asm-sdram/`, inclusive `flash-const` e `cpi-kernels`, que precisam da FLASH atrás das caches. Só o `hex-id` fica de fora, porque as pausas dele são feitas para uma pessoa olhar o display na placa; o programa `display` cobre a escrita e a leitura do registrador na simulação.
 

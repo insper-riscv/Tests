@@ -20,13 +20,21 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         self.assertEqual(uart_hw.DEFAULT_PAYLOAD, b"RX test\r\n")
         self.assertEqual(len(uart_hw.DEFAULT_PAYLOAD), uart_hw.ECHO_BYTE_COUNT)
         self.assertEqual(uart_hw.UART_TX_EXPECTED, b"Hello, world!\r\n")
-        self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ATR")
-        self.assertEqual(uart_hw.UART_ERRORS_READY, b"OB")
-        self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, b"\x12\x34")
+        self.assertEqual(uart_hw.UART_TX_FIFO_PAYLOAD, b"ABCDEFGHIJKLMNOPQ")
+        self.assertEqual(uart_hw.UART_RX_FIFO_PROMPT, b"R")
+        self.assertEqual(uart_hw.UART_ERRORS_PREFIX, b"ABCDEFGHIJKLMNOPQR")
+        self.assertEqual(uart_hw.UART_ERRORS_READY, b"O")
+        self.assertEqual(uart_hw.UART_ERRORS_RX_INPUT, bytes(range(17)))
         self.assertEqual(uart_hw.UART_BURST_PAYLOAD, bytes(range(32)))
         self.assertEqual(uart_hw.UART_ERRORS_FINAL, b"P")
+        self.assertEqual(uart_hw.UART_STDIO_PROMPT, b"READY\n")
+        self.assertEqual(uart_hw.UART_STDIO_INPUT, b"UART 42\n")
+        self.assertEqual(
+            uart_hw.UART_STDIO_RESULT,
+            b"Hello, UART! value=42\n",
+        )
 
-    def test_cli_defaults_to_both_uart_tests(self) -> None:
+    def test_cli_defaults_to_all_uart_tests(self) -> None:
         args = uart_hw.build_parser().parse_args([])
         self.assertEqual(args.test, uart_hw.ALL_TESTS)
 
@@ -169,13 +177,23 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         sleep.assert_called_once()
 
     def test_load_and_start_flushes_before_restart_pulse(self) -> None:
-        events = []
+        events: list[str] = []
+
+        def record_write(*_args: object) -> None:
+            events.append("write")
+
+        def record_flush(*_args: object) -> None:
+            events.append("flush")
+
+        def record_pulse(*_args: object) -> None:
+            events.append("pulse")
+
         link = mock.sentinel.link
         mif = Path("uart-tx.mif")
         cfg = {
             "quartus": {
-                "rom_mem_instances": [1, 3],
-                "ram_mem_instance": 2,
+                "rom_mem_instances": [0, 2],
+                "ram_mem_instance": 1,
             },
             "memory": {
                 "ram_base": 0x8000,
@@ -186,31 +204,31 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             mock.patch.object(
                 uart_hw.rom_writer,
                 "write_rom",
-                side_effect=lambda *_: events.append("write"),
+                side_effect=record_write,
             ) as write_rom,
             mock.patch.object(
                 uart_hw.termios,
                 "tcflush",
-                side_effect=lambda *_: events.append("flush"),
+                side_effect=record_flush,
             ),
             mock.patch.object(
                 uart_hw.htif,
                 "pulse_fromhost",
-                side_effect=lambda *_: events.append("pulse"),
+                side_effect=record_pulse,
             ) as pulse,
         ):
             uart_hw.load_and_start_firmware(7, link, cfg, mif)
 
         self.assertEqual(events, ["write", "flush", "pulse"])
-        write_rom.assert_called_once_with(link, [1, 3], mif)
-        pulse.assert_called_once_with(link, 2, 0x8000, 0x2FFF0)
+        write_rom.assert_called_once_with(link, [0, 2], mif)
+        pulse.assert_called_once_with(link, 1, 0x8000, 0x2FFF0)
 
     def test_uart_tx_bytes_emitted_during_restart_are_not_lost(self) -> None:
         read_end, write_end = os.pipe()
         cfg = {
             "quartus": {
-                "rom_mem_instances": [1, 3],
-                "ram_mem_instance": 2,
+                "rom_mem_instances": [0, 2],
+                "ram_mem_instance": 1,
             },
             "memory": {
                 "ram_base": 0x8000,
@@ -278,12 +296,17 @@ class UartHardwareTestUnitTests(unittest.TestCase):
         self.assertEqual(
             receive.call_args_list,
             [
-                mock.call(fd, uart_hw.UART_ERRORS_PREFIX, timeout, "UART TX_DROPPED"),
+                mock.call(
+                    fd,
+                    uart_hw.UART_ERRORS_PREFIX,
+                    timeout,
+                    "UART TX FIFO overflow/W1C",
+                ),
                 mock.call(
                     fd,
                     uart_hw.UART_ERRORS_READY,
                     timeout,
-                    "UART RX_OVERRUN/W1C",
+                    "UART RX FIFO overflow/W1C",
                 ),
                 mock.call(fd, expected_final, timeout, "UART burst"),
             ],
@@ -296,6 +319,45 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             ],
         )
 
+    def test_stdio_exchange_follows_printf_scanf_protocol(self) -> None:
+        fd = 7
+        timeout = 1.5
+        with (
+            mock.patch.object(
+                uart_hw,
+                "receive_expected",
+                side_effect=[
+                    uart_hw.UART_STDIO_PROMPT,
+                    uart_hw.UART_STDIO_RESULT,
+                ],
+            ) as receive,
+            mock.patch.object(uart_hw, "write_all") as write,
+        ):
+            responses = uart_hw.exchange_stdio(fd, timeout)
+
+        self.assertEqual(
+            responses,
+            (uart_hw.UART_STDIO_PROMPT, uart_hw.UART_STDIO_RESULT),
+        )
+        self.assertEqual(
+            receive.call_args_list,
+            [
+                mock.call(
+                    fd,
+                    uart_hw.UART_STDIO_PROMPT,
+                    timeout,
+                    "UART stdio printf prompt",
+                ),
+                mock.call(
+                    fd,
+                    uart_hw.UART_STDIO_RESULT,
+                    timeout,
+                    "UART stdio scanf/printf result",
+                ),
+            ],
+        )
+        write.assert_called_once_with(fd, uart_hw.UART_STDIO_INPUT, timeout)
+
     def test_validate_artifacts_requires_matching_fresh_image(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -303,6 +365,7 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             test_mif = root / "build/real/uart-echo.mif"
             tx_mif = root / "build/real/uart-tx.mif"
             errors_mif = root / "build/real/uart-errors.mif"
+            stdio_mif = root / "build/real/uart-stdio.mif"
             active_mif = root / "quartus/init.mif"
             sof = root / "quartus/output/core.sof"
             for path in (port, test_mif, active_mif, sof):
@@ -310,6 +373,7 @@ class UartHardwareTestUnitTests(unittest.TestCase):
                 path.write_bytes(b"echo-image")
             tx_mif.write_bytes(b"tx-image")
             errors_mif.write_bytes(b"errors-image")
+            stdio_mif.write_bytes(b"stdio-image")
             now_ns = time.time_ns()
             os.utime(active_mif, ns=(now_ns, now_ns))
             os.utime(sof, ns=(now_ns + 1_000_000, now_ns + 1_000_000))
@@ -326,10 +390,12 @@ class UartHardwareTestUnitTests(unittest.TestCase):
             self.assertEqual(artifacts.echo_mif, test_mif)
             self.assertIsNone(artifacts.tx_mif)
             self.assertIsNone(artifacts.errors_mif)
+            self.assertIsNone(artifacts.stdio_mif)
 
             artifacts = uart_hw.validate_artifacts(root, cfg, port, uart_hw.ALL_TESTS)
             self.assertEqual(artifacts.tx_mif, tx_mif)
             self.assertEqual(artifacts.errors_mif, errors_mif)
+            self.assertEqual(artifacts.stdio_mif, stdio_mif)
 
             tx_mif.unlink()
             with self.assertRaisesRegex(
@@ -346,6 +412,17 @@ class UartHardwareTestUnitTests(unittest.TestCase):
                     cfg,
                     port,
                     uart_hw.UART_ERRORS_TEST,
+                )
+
+            stdio_mif.unlink()
+            with self.assertRaisesRegex(
+                uart_hw.UartHardwareTestError, "compiled uart-stdio MIF"
+            ):
+                uart_hw.validate_artifacts(
+                    root,
+                    cfg,
+                    port,
+                    uart_hw.UART_STDIO_TEST,
                 )
 
             active_mif.write_bytes(b"different")

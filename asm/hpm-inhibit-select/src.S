@@ -1,9 +1,10 @@
 // RV32_EXT: M,Zicsr
 // RV32_TEST_KIND: memory
 //
-// mcountinhibit and the selectors of the event counters. Writing all ones to mcountinhibit leaves
-// bits 0, 2 and 3 to 6 (0x7D); with the bit of counter 3 set the counter keeps its value while
-// branches are taken, and clearing the bit makes it count again. A counter written with a value
+// mcountinhibit and the selectors of the event counters. This platform has all 29 HPM counters,
+// so writing all ones to mcountinhibit leaves bits 0 and 2 to 31 set (0xFFFFFFFD). With the bit of
+// counter 3 set, the counter keeps its value while branches are taken, and clearing the bit makes
+// it count again. A counter written with a value
 // reads it back through the machine register and its read-only mirror, and the selector reads back
 // the 4-bit code.
 #include "rv32_platform.h"
@@ -22,7 +23,7 @@ main:
 
     li   x6, 0xFFFFFFFF
     csrw 0x320, x6
-    csrr x22, 0x320               # 0x7D
+    csrr x22, 0x320               # 0xFFFFFFFD
     csrw 0x320, x0
 
     li   x6, 8

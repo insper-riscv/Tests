@@ -141,8 +141,8 @@ jobs:
       - name: Run dedicated physical UART tests
         # The preceding step has just programmed a fresh uart-echo image, so
         # avoid programming the same SOF a second time. The harness validates
-        # uart-echo, replaces FLASH with uart-tx and uart-errors over JTAG,
-        # then validates them.
+        # uart-echo, replaces FLASH with uart-tx, uart-errors and uart-stdio
+        # over JTAG, then validates them.
         run: |
           /opt/riscv-tools/riscv-tools/bin/python tools/riscv_build/uart_hardware_test.py \
             --port "$UART_PORT" --skip-program
@@ -168,5 +168,5 @@ jobs:
         run: |
           set -o pipefail
           riscv-tools --config tools/riscv_build/config.yaml run \
-            --exclude uart-echo,uart-tx,uart-errors \
+            --exclude uart-echo,uart-tx,uart-errors,uart-stdio \
             --skip-reconfigure | tee build/real/latest.log
