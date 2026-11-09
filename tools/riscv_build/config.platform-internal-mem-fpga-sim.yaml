@@ -32,9 +32,10 @@ sim:
   toplevel: core_fpga_test
   vhdl_sources:
   - Insper-RISC-V/src/simulation/internal-mem/pll/pll_sim.vhd
+  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
+  - Insper-RISC-V/src/simulation/internal-mem/rtl/config_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/internal_mem_map_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/Blinky.vhd
-  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
   - Insper-RISC-V/Core/src/shared/pipeline_types.vhd
   - Insper-RISC-V/Core/src/shared/byte_mask_consts.vhd
   - Insper-RISC-V/Core/src/shared/opcode_consts.vhd
@@ -66,6 +67,9 @@ sim:
   - Insper-RISC-V/Common-Components/src/mux_4x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_8x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_tree.vhd
+  - Insper-RISC-V/Common-Components/src/mux_16x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_32x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_64x1.vhd
   - Insper-RISC-V/Common-Components/src/onehot_decoder.vhd
   - Insper-RISC-V/Core/src/shared/reg_file.vhd
   - Insper-RISC-V/Core/src/shared/control_unit.vhd
@@ -90,7 +94,7 @@ sim:
   - Insper-RISC-V/Core/src/Zicclsm/misaligned_unit.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_decode.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_unit.vhd
-  - Insper-RISC-V/Core/src/Zicntr/counter64.vhd
+  - Insper-RISC-V/Common-Components/src/counter64.vhd
   - Insper-RISC-V/Core/src/Zicntr/tick_divider.vhd
   - Insper-RISC-V/Core/src/Zihpm/hpm_counter_bank.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_decode.vhd
@@ -110,10 +114,15 @@ sim:
   - Insper-RISC-V/Memory/src/RAM/FPGA/Cyclone-V/ram.vhd
   - Insper-RISC-V/Memory/src/ROM/Cyclone-V/boot_memory.vhd
   - Insper-RISC-V/Memory/src/ROM/Cyclone-V/flash.vhd
+  - Insper-RISC-V/Common-Components/src/synchronizer.vhd
   - Insper-RISC-V/Memory/src/ROM/SoC/flash_jtag_core.vhd
   - Insper-RISC-V/Memory/src/ROM/SoC/flash_loader.vhd
   - Insper-RISC-V/Common-Components/src/altera/virtual_jtag.vhd
   - Insper-RISC-V/Memory/src/ROM/Cyclone-V/flash_jtag_shell.vhd
+  - Insper-RISC-V/Common-Components/src/tristate_buffer_1bit.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_operation_decoder.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_cell.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uart2BusTop_pkg.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/baudGen.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartRx.vhd
