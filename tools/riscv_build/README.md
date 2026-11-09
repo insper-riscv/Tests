@@ -25,7 +25,7 @@ in one place instead of drifting between copies.
 | :--- | :--- |
 | `config.yaml` | `internal-mem` platform (ROM and RAM inside the FPGA, `core_fpga_test` top): the programs of `asm/` and `c/` |
 | `config.fpga-sim.yaml` | The same platform simulated with the Quartus memory models (`sim-fpga.yml`) |
-| `config.stepper-motor.yaml`, `config.stepper-motor-fpga-sim.yaml` | The `stepper-motor` program of `c-stepper/`, respectively on the generic simulation top and the hardware top |
+| `config.stepper-motor.yaml`, `config.stepper-motor-fpga-sim.yaml` | The `stepper-motor` and `stepper-uart` programs of `c-stepper/`, respectively on the generic simulation top and the hardware top |
 | `config.sdram-flash-regression.yaml` | `de0-cv` platform (BOOT_MEMORY in the core, FLASH and SDRAM behind the caches): the programs of `asm/` and `c/`, with the same results as `internal-mem` |
 | `config.sdram-flash.yaml` | `de0-cv` platform: the programs of `asm-sdram/` and `c-sdram/`, which use the SDRAM and the FLASH |
 | `config.sdram-flash-lat*.yaml`, `config.sdram-flash-regression-lat*.yaml`, `config.sdram-flash-slow.yaml` | The two above with other FLASH latencies, for the simulation |
@@ -174,11 +174,14 @@ uv run python -m unittest discover -s tests/host -v
 
 ## Stepper-motor hardware check
 
-The `stepper-motor` program drives a 28BYJ-48 through a ULN2003 from the
-four-bit GPIO at `RV32_MOTOR_BASE`. It first checks all eight half-step states,
-then runs 1024 timed half steps in each direction and clears the output. The
-simulation watches the same four top-level pins and requires the sequence
-`1, 3, 2, 6, 4, C, 8, 9`.
+The `stepper-motor` and `stepper-uart` programs drive a 28BYJ-48 through a
+ULN2003 from the four-bit GPIO at `RV32_MOTOR_BASE`. `stepper-motor` first
+checks all eight half-step states, then runs 1024 timed half steps in each
+direction and clears the output. `stepper-uart` prints `READY`, blocks in
+`scanf` until it receives `d` or `e`, runs 1024 timed half steps in that
+direction, clears the output and prints `CONCLUIDO`. The simulation sends `e`,
+requires `READY\nESQUERDA\n` on TX and watches the reverse half-step sequence
+on the same four top-level pins.
 
 Build and program only this image with:
 
@@ -186,6 +189,8 @@ Build and program only this image with:
 riscv-tools --config tools/riscv_build/config.stepper-motor.yaml generate-header
 riscv-tools --config tools/riscv_build/config.stepper-motor.yaml compile --emit mif
 riscv-tools --config tools/riscv_build/config.stepper-motor.yaml program build-stepper/real/stepper-motor.mif
+# Or program the interactive UART-controlled image:
+riscv-tools --config tools/riscv_build/config.stepper-motor.yaml program build-stepper/real/stepper-uart.mif
 ```
 
 The JP2 pinout, ULN2003 power wiring, register map and troubleshooting notes

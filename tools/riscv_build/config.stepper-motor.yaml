@@ -1,4 +1,4 @@
-# Programa do motor de passos, exclusivo da plataforma internal-mem.
+# Programas do motor de passos, exclusivos da plataforma internal-mem.
 extends: config.platform-internal-mem.yaml
 
 paths:

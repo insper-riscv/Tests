@@ -8,6 +8,7 @@ cache/
 sim_build/
 build-plic/
 build-plic-de0-cv/
+build-stepper/
 .venv/
 # Per-kind run history (real/sim/certification) — see
 # riscv_tools.run_log. Local-only, kept around across `compile`

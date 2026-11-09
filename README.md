@@ -30,7 +30,7 @@ Os testes de hardware real exigem uma workstation com Quartus, um runner self-ho
 | Caminho | Conteúdo |
 | :--- | :--- |
 | `asm/`, `c/` | Os 132 testes comuns da suíte (91 em assembly, 41 em C), um `<name>/src.S` ou `<name>/src.c` por pasta |
-| `c-stepper/` | O programa `stepper-motor`, exclusivo do GPIO de motor da plataforma `internal-mem` e executado com `config.stepper-motor.yaml` |
+| `c-stepper/` | Os programas `stepper-motor` e `stepper-uart`, exclusivos do GPIO de motor da plataforma `internal-mem` e executados com `config.stepper-motor.yaml` |
 | `asm-hpm-reduced/` | O programa `hpm-reduced`, que espera o núcleo com 4 contadores de eventos de 40 bits e por isso fica fora do `asm/` (que roda no perfil completo); roda com `config.hpm-reduced.yaml` |
 | `c-sdram/` | Programas que usam a SDRAM da plataforma `sdram`, um `<name>/src.c` por pasta; cada um confere a si mesmo e sinaliza PASS ou FAIL |
 | `c-sdram-update/` | Os programas de atualização de programa da FLASH, `flash-update` (atualização completa da banca B) e `flash-update-interrupted` (cabeçalho da banca B não gravado, volta à banca A); cada um recebe pela UART a imagem de `uart_input.txt` e roda com `config.sdram-flash-update.yaml` (chip rápido) e `config.sdram-flash-update-slow.yaml` (chip lento) |
@@ -63,7 +63,7 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 
 Os programas `uart-tx`, `uart-echo`, `uart-errors` e `uart-stdio` rodam na simulação da plataforma `internal-mem` e na placa, porque usam os pinos seriais do topo de hardware. `uart-stdio` integra o `printf` e o `scanf` da picolibc com as filas TX/RX. Nas simulações das plataformas `sdram` e `sdram-flash`, cujos topos só têm a UART sobre JTAG, eles ficam de fora com `--exclude uart-echo,uart-tx,uart-errors,uart-stdio`.
 
-O programa `stepper-motor` usa o GPIO de quatro bits da plataforma `internal-mem` e roda com `config.stepper-motor.yaml`. A simulação confere a sequência de meio passo nos pinos; na placa, o programa executa 1024 meios passos em cada sentido e desenergiza as bobinas ao terminar. A ligação do JP2 ao ULN2003 está na documentação do motor acima.
+Os programas `stepper-motor` e `stepper-uart` usam o GPIO de quatro bits da plataforma `internal-mem` e rodam com `config.stepper-motor.yaml`. O primeiro executa automaticamente 1024 meios passos em cada sentido. O segundo espera `d` ou `e` com `scanf`, executa 1024 meios passos no sentido escolhido e responde pela UART com `printf`. A simulação injeta um comando no RX e confere a resposta no TX e a sequência nos pinos. A ligação do JP2 ao ULN2003 está na documentação do motor acima.
 
 Os programas `hpm-*` cobrem os 29 índices do Zihpm. Em `asm/`, `hpm-full` espera o perfil completo (29 contadores de 64 bits), e `hpm-sweep`, `hpm-fused-high` e `hpm-inhibit-select` se ajustam ao perfil do núcleo. O `hpm-reduced` espera 4 contadores de 40 bits e roda em outra configuração:
 
