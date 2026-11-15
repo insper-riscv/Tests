@@ -268,7 +268,7 @@ def board_command(host: str, sub: str, *extra: str) -> list[str]:
     Parameters
     ----------
     host : str
-        O rótulo do host (``laptop`` ou ``ws``), que entra no nome da trava.
+        O rótulo do host (``laptop`` ou o hostname curto da máquina), que entra no nome da trava.
     sub : str
         ``select`` ou ``lock``.
     *extra : str
@@ -325,7 +325,7 @@ def board_session(host: str, wait_s: int = LOCK_WAIT_S, free: bool = False) -> G
     Parameters
     ----------
     host : str
-        O rótulo do host, ``laptop`` ou ``ws``.
+        O rótulo do host, ``laptop`` ou o hostname curto da máquina.
     wait_s : int
         Quanto esperar pela trava antes de desistir.
     free : bool
@@ -468,7 +468,7 @@ def run_stage(stage: str, host: str, part: str, out: Path, cable: str) -> dict[s
     stage : str
         Nome da etapa.
     host : str
-        ``laptop`` ou ``ws``, só para o nome do log.
+        ``laptop`` ou o hostname curto da máquina, só para o nome do log.
     part : str
         Fatia ``I/N`` da lista.
     out : Path
@@ -638,7 +638,7 @@ def main() -> None:
             "--board",
             dest="host",
             required=True,
-            help="rótulo do host da placa (laptop ou ws), no nome da trava e dos arquivos",
+            help="rótulo do host da placa (laptop ou o hostname curto da máquina), no nome da trava e dos arquivos",
         )
         p.add_argument("--part", default="0/1", help="fatia I/N da lista, ou auto")
         p.add_argument("--sof", help="bitstream a programar")
