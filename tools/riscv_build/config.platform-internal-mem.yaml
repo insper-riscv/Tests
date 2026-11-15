@@ -31,6 +31,8 @@ quartus:
 sim:
   toplevel: rv32i3stage_core_sim_test
   vhdl_sources:
+  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
+  - Insper-RISC-V/src/simulation/internal-mem/rtl/config_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/internal_mem_map_pkg.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/clk_gen_3way.vhd
   - Insper-RISC-V/Core/src/shared/pipeline_types.vhd
@@ -60,11 +62,13 @@ sim:
   - Insper-RISC-V/Common-Components/src/generic_register.vhd
   - Insper-RISC-V/Common-Components/src/flip_flop.vhd
   - Insper-RISC-V/Common-Components/src/clearable_register.vhd
-  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
   - Insper-RISC-V/Common-Components/src/mux_2x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_4x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_8x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_tree.vhd
+  - Insper-RISC-V/Common-Components/src/mux_16x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_32x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_64x1.vhd
   - Insper-RISC-V/Common-Components/src/onehot_decoder.vhd
   - Insper-RISC-V/Core/src/shared/reg_file.vhd
   - Insper-RISC-V/Core/src/shared/control_unit.vhd
@@ -89,7 +93,7 @@ sim:
   - Insper-RISC-V/Core/src/Zicclsm/misaligned_unit.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_decode.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_unit.vhd
-  - Insper-RISC-V/Core/src/Zicntr/counter64.vhd
+  - Insper-RISC-V/Common-Components/src/counter64.vhd
   - Insper-RISC-V/Core/src/Zicntr/tick_divider.vhd
   - Insper-RISC-V/Core/src/Zihpm/hpm_counter_bank.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_decode.vhd
@@ -129,27 +133,24 @@ sim:
     boot_memory_addr_width: '10'
     rom_addr_width: '13'
     ram_addr_width: '16'
-    HAS_E: false
-    HAS_M: true
-    HAS_ZMMUL: false
-    HAS_ZICSR: true
-    HAS_ZICNTR: true
-    HAS_ZIHPM: true
-    HAS_ZIMOP: true
-    HAS_ZICOND: true
-    HAS_ZIHINTNTL: false
-    HAS_ZIHINTPAUSE: false
-    HAS_ZIFENCEI: false
-    HAS_ZICCLSM: true
-    HAS_INTERRUPTS: false
-    HAS_SSCOFPMF: false
-    HAS_ACCESS_FAULTS: false
     ROM_EXTERNAL: false
     RAM_EXTERNAL: false
     HAS_ICACHE: false
     HAS_DCACHE: false
     ICACHE_SIZE_BITS: '256'
     DCACHE_SIZE_BITS: '256'
+  config_pkg: "-- ============================================================================\n-- Pacote de configura\xE7\xE3o da plataforma (constantes de elabora\xE7\xE3o)\n--\n-- Gerado por `riscv-tools` a partir de platform.yaml.\n-- N\xE3o edite \xE0 m\xE3o: mude o YAML da plataforma e gere de novo.\n--\n-- A unidade tem o nome do pacote padr\xE3o do Common-Components e as mesmas\n-- constantes e tipos, ent\xE3o esta vers\xE3o ocupa o lugar dele na lista de fontes.\n-- ============================================================================\n\nlibrary ieee;\nuse ieee.std_logic_1164.all;\nuse ieee.numeric_std.all;\nuse work.utils_pkg.all;\n\npackage config_pkg is\n\n\t-- Base de 64 bits (RV64) quando verdadeiro, de 32 bits (RV32) quando falso.\n\tconstant IS_64              : boolean := false;\n\t-- Base E (16 registradores) quando verdadeiro, base I (32) quando falso.\n\tconstant IS_BASE_E          : boolean := false;\n\t-- Largura do endere\xE7o f\xEDsico em bits, de 16 a 64 (acima\
+    \ de 32 s\xF3 com IS_64).\n\tconstant ADDR_BITS          : natural := 32;\n\n\t-- Largura em bits da palavra de dados, do PC l\xF3gico e dos registradores.\n\tconstant XLEN               : natural := pick(IS_64, 64, 32);\n\t-- Largura em bits do \xEDndice de registrador: 4 na base E e 5 na base I.\n\tconstant REG_BITS           : natural := pick(IS_BASE_E, 4, 5);\n\t-- N\xFAmero de registradores de uso geral, 2 elevado a REG_BITS.\n\tconstant NUM_REGS           : natural := 2 ** REG_BITS;\n\n\t-- Palavra de dados de XLEN bits.\n\tsubtype word_t is std_logic_vector((XLEN - 1) downto 0);\n\t-- \xCDndice de registrador de uso geral de REG_BITS bits.\n\tsubtype reg_t is std_logic_vector((REG_BITS - 1) downto 0);\n\t-- Endere\xE7o f\xEDsico de ADDR_BITS bits.\n\tsubtype addr_t is std_logic_vector((ADDR_BITS - 1) downto 0);\n\t-- Endere\xE7o de mapa em bytes, com um bit a mais para representar o fim exclusivo 2**ADDR_BITS.\n\tsubtype map_addr_t is unsigned(ADDR_BITS downto 0);\n\n\t-- Extens\xE3\
+    o M (multiplica\xE7\xE3o e divis\xE3o) presente.\n\tconstant HAS_M              : boolean := true;\n\t-- Extens\xE3o Zmmul (s\xF3 multiplica\xE7\xE3o) presente; HAS_M j\xE1 a inclui.\n\tconstant HAS_ZMMUL          : boolean := false;\n\t-- Extens\xE3o Zicsr e tratamento de exce\xE7\xF5es do modo m\xE1quina presentes.\n\tconstant HAS_ZICSR          : boolean := true;\n\t-- Extens\xE3o Zicntr (mcycle, minstret, time) presente; exige HAS_ZICSR.\n\tconstant HAS_ZICNTR         : boolean := true;\n\t-- Extens\xE3o Zihpm (contadores de eventos) presente; exige HAS_ZICSR.\n\tconstant HAS_ZIHPM          : boolean := true;\n\t-- Extens\xE3o Zimop (mop.r.n e mop.rr.n) presente.\n\tconstant HAS_ZIMOP          : boolean := true;\n\t-- Extens\xE3o Zicond (czero.eqz e czero.nez) presente.\n\tconstant HAS_ZICOND         : boolean := true;\n\t-- Extens\xE3o Zihintntl (dicas ntl.*) presente.\n\tconstant HAS_ZIHINTNTL      : boolean := false;\n\t-- Extens\xE3o Zihintpause (dica pause) presente.\n\tconstant\
+    \ HAS_ZIHINTPAUSE    : boolean := false;\n\t-- Extens\xE3o Zifencei (fence.i) presente.\n\tconstant HAS_ZIFENCEI       : boolean := false;\n\t-- Acesso desalinhado \xE0 mem\xF3ria principal atendido em hardware (Zicclsm).\n\tconstant HAS_ZICCLSM        : boolean := true;\n\t-- Interrup\xE7\xF5es de m\xE1quina presentes (mip e mie); exige HAS_ZICSR.\n\tconstant HAS_INTERRUPTS     : boolean := false;\n\t-- Extens\xE3o Sscofpmf (estouro de contador de eventos) presente; exige HAS_ZIHPM e HAS_INTERRUPTS.\n\tconstant HAS_SSCOFPMF       : boolean := false;\n\t-- Falhas de acesso (causas 1, 5 e 7) geradas fora do mapa v\xE1lido; exige HAS_ZICSR.\n\tconstant HAS_ACCESS_FAULTS  : boolean := false;\n\n\t-- Existe cache de instru\xE7\xF5es.\n\tconstant HAS_ICACHE         : boolean := false;\n\t-- Existe cache de dados.\n\tconstant HAS_DCACHE         : boolean := false;\n\n\t-- Expoente do tamanho da BOOT_MEMORY, que ocupa os endere\xE7os [0, 2**BOOT_MEMORY_BITS).\n\tconstant BOOT_MEMORY_BITS  \
+    \ : natural := 12;\n\t-- Base da ROM em bytes, logo depois da BOOT_MEMORY.\n\tconstant ROM_BASE           : map_addr_t := resize(unsigned'(x\"00001000\"), ADDR_BITS + 1);\n\t-- Fim exclusivo da ROM em bytes.\n\tconstant ROM_END            : map_addr_t := resize(unsigned'(x\"00008000\"), ADDR_BITS + 1);\n\t-- A ROM \xE9 alcan\xE7ada pela porta do n\xFAcleo (externa ou atr\xE1s de cache) quando verdadeiro.\n\tconstant ROM_EXTERNAL       : boolean := false;\n\t-- Base da RAM em bytes.\n\tconstant RAM_BASE           : map_addr_t := resize(unsigned'(x\"00008000\"), ADDR_BITS + 1);\n\t-- Fim exclusivo da RAM em bytes.\n\tconstant RAM_END            : map_addr_t := resize(unsigned'(x\"00030000\"), ADDR_BITS + 1);\n\t-- A RAM \xE9 alcan\xE7ada pela porta do n\xFAcleo (externa ou atr\xE1s de cache) quando verdadeiro.\n\tconstant RAM_EXTERNAL       : boolean := false;\n\t-- Base da janela externa em bytes: todo endere\xE7o a partir dela sai pela porta externa.\n\tconstant EXT_BASE           :\
+    \ map_addr_t := resize(unsigned'(x\"80000000\"), ADDR_BITS + 1);\n\t-- Base da janela de perif\xE9ricos em bytes, 2**(ADDR_BITS - 1) por padr\xE3o.\n\tconstant PERIPH_BASE        : map_addr_t := resize(unsigned'(x\"80000000\"), ADDR_BITS + 1);\n\t-- Largura em bits da janela de endere\xE7os das caches (26 \xE9 64 MiB, 27 \xE9 128 MiB).\n\tconstant CACHE_WINDOW_BITS  : natural := 26;\n\n\t-- Perif\xE9rico UART (console) presente.\n\tconstant HAS_UART           : boolean := true;\n\t-- UART com os pinos da placa presente.\n\tconstant HAS_UART_PINS      : boolean := false;\n\t-- UART pelo JTAG presente.\n\tconstant HAS_UART_JTAG      : boolean := false;\n\t-- Temporizador presente.\n\tconstant HAS_TIMER          : boolean := false;\n\t-- Perif\xE9rico de entrada e sa\xEDda de uso geral (GPIO) presente.\n\tconstant HAS_GPIO           : boolean := false;\n\t-- Display de sete segmentos presente.\n\tconstant HAS_DISPLAY        : boolean := false;\n\t-- Chaves da placa presentes.\n\tconstant\
+    \ HAS_SWITCHES       : boolean := false;\n\t-- Bot\xF5es da placa presentes.\n\tconstant HAS_KEYS           : boolean := false;\n\t-- CLINT (mtime e mtimecmp) presente.\n\tconstant HAS_CLINT          : boolean := false;\n\t-- PLIC (controlador de interrup\xE7\xF5es externas) presente.\n\tconstant HAS_PLIC           : boolean := false;\n\t-- Controlador da mem\xF3ria FLASH presente.\n\tconstant HAS_FLASH_CTRL     : boolean := false;\n\t-- Perif\xE9ricos estritos: o padding de cada perif\xE9rico e as janelas sem perif\xE9rico geram falha de acesso\n\t-- quando verdadeiro; a chave strict_periph do platform.yaml o desliga por plataforma.\n\tconstant STRICT_PERIPH      : boolean := true;\n\n\t-- Multiplica\xE7\xE3o presente, por M ou por Zmmul.\n\tconstant HAS_MULDIV         : boolean := HAS_M or HAS_ZMMUL;\n\t-- Algum contador de hardware presente, Zicntr ou Zihpm.\n\tconstant HAS_ANY_COUNTER    : boolean := HAS_ZICNTR or HAS_ZIHPM;\n\t-- Interrup\xE7\xE3o de estouro de contador (Sscofpmf)\
+    \ ativa, o que exige Zihpm e interrup\xE7\xF5es.\n\tconstant HAS_SSCOF          : boolean := HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;\n\n\t-- Devolve o nome da ISA configurada, como rv32im_zicclsm, na ordem can\xF4nica das extens\xF5es.\n\tfunction isa_string return string;\n\n\t-- Confere as depend\xEAncias entre as constantes e falha na elabora\xE7\xE3o quando a configura\xE7\xE3o \xE9\n\t-- inv\xE1lida; devolve sempre verdadeiro.\n\tfunction check_isa return boolean;\n\nend package config_pkg;\n\npackage body config_pkg is\n\n\tfunction isa_string return string is\n\t\t-- Texto acumulado, com folga para todas as extens\xF5es.\n\t\tvariable text  : string(1 to 128) := (others => ' ');\n\t\t-- N\xFAmero de caracteres j\xE1 escritos em text.\n\t\tvariable count : natural := 0;\n\n\t\t-- Acrescenta o trecho s ao final do texto.\n\t\tprocedure add(s : in string) is\n\t\tbegin\n\t\t\tfor i in s'range loop\n\t\t\t\tcount := count + 1;\n\t\t\t\ttext(count) := s(i);\n\t\t\tend loop;\n\
+    \t\tend procedure add;\n\n\t\t-- Acrescenta o trecho s quando a condi\xE7\xE3o cond \xE9 verdadeira.\n\t\tprocedure add_if(cond : in boolean; s : in string) is\n\t\tbegin\n\t\t\tif cond then\n\t\t\t\tadd(s);\n\t\t\tend if;\n\t\tend procedure add_if;\n\tbegin\n\t\tadd_if(IS_64, \"rv64\");\n\t\tadd_if(not IS_64, \"rv32\");\n\t\tadd_if(IS_BASE_E, \"e\");\n\t\tadd_if(not IS_BASE_E, \"i\");\n\t\tadd_if(HAS_M, \"m\");\n\t\tadd_if(HAS_ZICCLSM, \"_zicclsm\");\n\t\tadd_if(HAS_ZICNTR, \"_zicntr\");\n\t\tadd_if(HAS_ZICOND, \"_zicond\");\n\t\tadd_if(HAS_ZICSR, \"_zicsr\");\n\t\tadd_if(HAS_ZIFENCEI, \"_zifencei\");\n\t\tadd_if(HAS_ZIHINTNTL, \"_zihintntl\");\n\t\tadd_if(HAS_ZIHINTPAUSE, \"_zihintpause\");\n\t\tadd_if(HAS_ZIHPM, \"_zihpm\");\n\t\tadd_if(HAS_ZIMOP, \"_zimop\");\n\t\tadd_if(HAS_ZMMUL and not HAS_M, \"_zmmul\");\n\t\tadd_if(HAS_SSCOFPMF, \"_sscofpmf\");\n\t\treturn text(1 to count);\n\tend function isa_string;\n\n\tfunction check_isa return boolean is\n\t\t-- Um, na largura de map_addr_t,\
+    \ base das pot\xEAncias de dois do mapa.\n\t\tconstant ONE          : map_addr_t := to_unsigned(1, ADDR_BITS + 1);\n\t\t-- Fim da BOOT_MEMORY em bytes, 2**BOOT_MEMORY_BITS.\n\t\tconstant BOOT_END     : map_addr_t := shift_left(ONE, BOOT_MEMORY_BITS);\n\t\t-- Fim do espa\xE7o de endere\xE7os f\xEDsico em bytes, 2**ADDR_BITS.\n\t\tconstant SPACE_END    : map_addr_t := shift_left(ONE, ADDR_BITS);\n\tbegin\n\t\tassert not (HAS_ZICNTR or HAS_ZIHPM) or HAS_ZICSR\n\t\t\treport \"Zicntr e Zihpm exigem Zicsr\"\n\t\t\tseverity failure;\n\t\tassert not HAS_INTERRUPTS or HAS_ZICSR\n\t\t\treport \"interrupcoes exigem Zicsr\"\n\t\t\tseverity failure;\n\t\tassert not HAS_SSCOFPMF or (HAS_ZIHPM and HAS_INTERRUPTS)\n\t\t\treport \"Sscofpmf exige Zihpm e interrupcoes\"\n\t\t\tseverity failure;\n\t\tassert not HAS_ACCESS_FAULTS or HAS_ZICSR\n\t\t\treport \"falhas de acesso exigem Zicsr\"\n\t\t\tseverity failure;\n\t\tassert ADDR_BITS >= 16 and ADDR_BITS <= 64\n\t\t\treport \"ADDR_BITS fora de 16..64\"\n\
+    \t\t\tseverity failure;\n\t\tassert IS_64 or ADDR_BITS <= 32\n\t\t\treport \"ADDR_BITS > 32 exige IS_64\"\n\t\t\tseverity failure;\n\t\tassert BOOT_MEMORY_BITS < ADDR_BITS\n\t\t\treport \"BOOT_MEMORY_BITS deve ser menor que ADDR_BITS\"\n\t\t\tseverity failure;\n\t\tassert BOOT_END <= ROM_BASE\n\t\t\treport \"a ROM deve comecar depois da BOOT_MEMORY\"\n\t\t\tseverity failure;\n\t\tassert ROM_END <= RAM_BASE\n\t\t\treport \"a ROM deve terminar antes da RAM\"\n\t\t\tseverity failure;\n\t\tassert RAM_BASE < RAM_END\n\t\t\treport \"a RAM deve ter tamanho positivo\"\n\t\t\tseverity failure;\n\t\tassert RAM_END <= EXT_BASE\n\t\t\treport \"a RAM deve terminar antes da janela externa\"\n\t\t\tseverity failure;\n\t\tassert EXT_BASE <= PERIPH_BASE\n\t\t\treport \"a janela externa deve terminar antes dos perifericos\"\n\t\t\tseverity failure;\n\t\tassert PERIPH_BASE < SPACE_END\n\t\t\treport \"a janela de perifericos deve caber em 2**ADDR_BITS\"\n\t\t\tseverity failure;\n\t\treturn true;\n\tend\
+    \ function check_isa;\n\nend package body config_pkg;\n"
 emulator:
   sources:
   - Insper-RISC-V/src/simulation/internal-mem/runtime/spike_exit.S
