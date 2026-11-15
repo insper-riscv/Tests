@@ -19,7 +19,7 @@ permissions:
 jobs:
   # Passos rapidos que nao simulam nada: harness do host, configs das plataformas, mapa de memoria.
   sim-host:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 15
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -60,7 +60,7 @@ jobs:
   # instrucoes) ainda nao tem topo de simulacao que rode os programas deste repositorio: veja o README.
   sim-matrix:
     name: sim-${{ matrix.arch }}-${{ matrix.base }}
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 120
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -189,7 +189,7 @@ jobs:
 
   # Os programas que usam a SDRAM, na plataforma com a FLASH atras das caches.
   sim-sdram-flash:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -217,7 +217,7 @@ jobs:
 
   # Os mesmos programas com um chip de FLASH lento: nada pode depender da latencia.
   sim-flash-slow:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -247,7 +247,7 @@ jobs:
   # controlador e reinicia; a boot ROM executa a banca nova (flash-update) ou volta à banca A (flash-update-interrupted).
   # Com o chip de FLASH rápido e com o lento: o resultado não pode depender da latência.
   sim-update:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -280,7 +280,7 @@ jobs:
           if-no-files-found: ignore
 
   unit-vhdl:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 30
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -306,7 +306,7 @@ jobs:
   # na main e a pedido (nao atrasa o PR). Um job pulado conta como sucesso no agregador.
   regression:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 120
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
