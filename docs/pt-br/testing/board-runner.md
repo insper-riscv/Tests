@@ -32,7 +32,7 @@ A variável `RISCV_TOOLS` dá o comando do `riscv-tools`, por exemplo `uv run --
 
 ## 3. Duas placas em paralelo
 
-A opção `--part I/N` reparte a lista ordenada: a placa `I` roda os itens de índice `I` módulo `N`. O rótulo do host (`--host laptop` ou `--host ws`, também aceito como `--board`) entra no nome da trava, `de0cv-laptop.lock` e `de0cv-ws.lock`, o mesmo arquivo que os demais usuários da placa tomam. Com `--part auto` o runner toma uma placa livre do host e reparte a lista entre todas as placas da plataforma que o host tem, na ordem do identificador delas.
+A opção `--part I/N` reparte a lista ordenada: a placa `I` roda os itens de índice `I` módulo `N`. O rótulo do host (`--host`, também aceito como `--board`) é o hostname curto da máquina, dado por `hostname -s`, ou `laptop` no notebook; ele entra no nome da trava, como `de0cv-laptop.lock` ou `de0cv-<hostname>.lock`, o mesmo arquivo que os demais usuários da placa tomam. Com `--part auto` o runner toma uma placa livre do host e reparte a lista entre todas as placas da plataforma que o host tem, na ordem do identificador delas.
 
 ```bash
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
@@ -44,14 +44,14 @@ RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
 O Certification gera o alvo da placa com `gen_profiles.py --profile rv32im_full_zifencei --board --out build/target` e constrói os ELFs com `riscv-tools --config build/target/config.yaml certify-board --build-only`, na imagem `ci-act4`. O runner roda então:
 
 ```bash
-python3 tools/board/board_run.py act --host ws --part 1/2 --sof de0-cv.sof \
+python3 tools/board/board_run.py act --host "$(hostname -s)" --part 1/2 --sof de0-cv.sof \
   --config <Certification>/build/target/config.yaml --root <Certification> \
   --target rv32im_full_zifencei__board
 ```
 
 ## 5. Programas de atualização, Zihpm reduzido e PLIC
 
-O `tools/board/board_update.py` conduz os programas que o `riscv-tools run` sozinho não conduz. Ele toma a trava da DE0-CV com `board_session`, do mesmo `board_run.py`, e exporta o cabo da placa travada em `RISCV_TOOLS_CABLE` para o `riscv-tools` que abre o JTAG. A opção `--host laptop` ou `--host ws` (também aceita como `--board`) escolhe o rótulo do host, e `--skip-lock` serve a quem já segura a trava e exporta o cabo.
+O `tools/board/board_update.py` conduz os programas que o `riscv-tools run` sozinho não conduz. Ele toma a trava da DE0-CV com `board_session`, do mesmo `board_run.py`, e exporta o cabo da placa travada em `RISCV_TOOLS_CABLE` para o `riscv-tools` que abre o JTAG. A opção `--host` (também aceita como `--board`) escolhe o rótulo do host, o hostname curto da máquina ou `laptop` no notebook, qualquer texto sem `/` nem espaço em branco, e `--skip-lock` serve a quem já segura a trava e exporta o cabo.
 
 | Etapa | Programas | Condução |
 | :--- | :--- | :--- |
@@ -82,7 +82,7 @@ Nas plataformas que ligam só parte das extensões, o `prepare` compila só os p
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
   python3 tools/board/board_run.py prepare --stages de0-nano-regression de0-nano-sdram
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
-  python3 tools/board/board_run.py run --stages de0-nano-regression de0-nano-sdram --host ws --sof de0-nano.sof
+  python3 tools/board/board_run.py run --stages de0-nano-regression de0-nano-sdram --host "$(hostname -s)" --sof de0-nano.sof
 ```
 
 Os resultados de cada placa estão em [board-results.md](board-results.md).
