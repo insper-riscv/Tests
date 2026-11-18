@@ -1,0 +1,10 @@
+# Os programas de boot (c-boot/) na plataforma de0-cv: o estado que a BOOT deixa na main e a espera entre
+# testes, no núcleo do bitstream que a placa tem. O mesmo código roda na simulação (tools/boot/boot_profile.py)
+# e na DE2-115 (basta trocar o config que a estende).
+extends: config.platform-de0-cv.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-sdram
+  build_dir: build-boot-de0-cv
+  c_dir: c-boot
+  asm_dir: asm-boot
