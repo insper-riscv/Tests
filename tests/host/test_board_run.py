@@ -3,6 +3,7 @@
 import os
 import re
 import stat
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -93,6 +94,83 @@ class BoardRunUnitTests(unittest.TestCase):
             board_run.board_session("ws"),
         ):
             pass
+
+
+class BootSequenceTests(unittest.TestCase):
+    """A etapa que roda os testes um por vez, com FAIL e travamento no meio."""
+
+    def test_the_sequence_has_ten_tests_with_a_fail_and_a_hang_in_the_middle(self) -> None:
+        sequence = board_run.BOOT_SEQUENCE
+        self.assertEqual(len(sequence), 10)
+        self.assertIn("boot-seq-fail", sequence[1:-1])
+        self.assertIn("boot-seq-hang", sequence[1:-1])
+        self.assertEqual(sequence[-1], "boot-seq-pass")
+
+    def test_every_non_passing_program_has_an_expected_verdict(self) -> None:
+        for name in set(board_run.BOOT_SEQUENCE):
+            if name != "boot-seq-pass":
+                self.assertIn(name, board_run.BOOT_EXPECT)
+
+    def test_the_boot_stages_exist_for_both_boards(self) -> None:
+        self.assertEqual(board_run.STAGES["boot-seq"].get("sequence"), board_run.BOOT_SEQUENCE)
+        self.assertEqual(board_run.STAGES["boot-seq-de2-115"].get("sequence"), board_run.BOOT_SEQUENCE)
+        self.assertEqual(board_run.STAGES["boot-de2-115"].get("board"), "de2-115")
+        self.assertNotIn("board", board_run.STAGES["boot"])
+
+    def test_every_boot_stage_points_at_a_config_that_exists(self) -> None:
+        for name in ("boot", "boot-seq", "boot-de2-115", "boot-seq-de2-115"):
+            config = board_run.TESTS_ROOT / board_run.BUILD / board_run.STAGES[name]["config"]
+            self.assertTrue(config.is_file(), config)
+
+    def test_the_verdict_matches_the_expected_one(self) -> None:
+        self.assertEqual(board_run.sequence_verdict("PASS", "PASS"), "PASS")
+        self.assertEqual(board_run.sequence_verdict("FAIL", "FAIL"), "PASS")
+
+    def test_a_different_verdict_carries_both(self) -> None:
+        self.assertEqual(board_run.sequence_verdict("TIMEOUT", "PASS"), "TIMEOUT (esperado PASS)")
+
+    def test_only_the_first_part_runs_the_sequence(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            self.assertEqual(board_run.run_sequence("boot-seq", "ws", "1/2", Path(root), "cable"), {})
+
+    def test_each_position_is_one_run_judged_against_its_expected_verdict(self) -> None:
+        verdicts = {"boot-seq-pass": "PASS", "boot-seq-fail": "FAIL", "boot-seq-hang": ""}
+
+        def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            name = command[-1]
+            line = f"  {verdicts[name]}  {name}\n" if verdicts[name] else ""
+            return subprocess.CompletedProcess(command, 0, line, "")
+
+        with (
+            tempfile.TemporaryDirectory() as root,
+            mock.patch.object(board_run, "manifest_names", return_value=sorted(verdicts)),
+            mock.patch.object(board_run.subprocess, "run", side_effect=fake_run),
+        ):
+            found = board_run.run_sequence("boot-seq", "ws", "0/1", Path(root), "cable")
+        self.assertEqual(len(found), 10)
+        self.assertEqual(set(found.values()), {"PASS"})
+        self.assertEqual(found["06-boot-seq-hang"], "PASS")
+
+    def test_a_program_that_never_reports_is_a_timeout(self) -> None:
+        def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        with (
+            tempfile.TemporaryDirectory() as root,
+            mock.patch.object(board_run, "manifest_names", return_value=sorted(set(board_run.BOOT_SEQUENCE))),
+            mock.patch.object(board_run.subprocess, "run", side_effect=fake_run),
+        ):
+            found = board_run.run_sequence("boot-seq", "ws", "0/1", Path(root), "cable")
+        self.assertEqual(found["01-boot-seq-pass"], "TIMEOUT (esperado PASS)")
+        self.assertEqual(found["06-boot-seq-hang"], "PASS")
+
+    def test_a_program_missing_from_the_manifest_stops_the_stage(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as root,
+            mock.patch.object(board_run, "manifest_names", return_value=["boot-seq-pass"]),
+            self.assertRaisesRegex(RuntimeError, "boot-seq-fail"),
+        ):
+            board_run.run_sequence("boot-seq", "ws", "0/1", Path(root), "cable")
 
 
 if __name__ == "__main__":

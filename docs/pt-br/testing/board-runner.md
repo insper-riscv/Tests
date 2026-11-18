@@ -17,6 +17,8 @@ Sem `--stages`, o runner roda as etapas da DE0-CV, porque uma sessão trava uma 
 | `de10-lite-regression`, `de10-lite-sdram`, `de10-lite-irq` | `de10-lite` | `config.lite-regression.yaml`, `config.lite-sdram.yaml`, `config.lite-irq.yaml` | Os mesmos programas da DE0-CV, no perfil completo |
 | `de2-115` | `de2-115` | `config.de2-115.yaml` | Os programas de `asm/`, `c/`, `asm-sdram/` e `c-sdram/` com a FLASH NOR e a SDRAM de 32 bits |
 | `de2-115-n2` | `de2-115` | `config.de2-115-n2.yaml` | Os programas que cabem na RAM emulada de 128 KiB, sem os da janela de 16 MB da SDRAM |
+| `boot`, `boot-seq` | `de0-cv` | `config.boot-de0-cv.yaml`, `config.boot-seq-de0-cv.yaml` | Os programas de boot de `c-boot/` e a sequência de dez testes de `c-boot-seq/`, rodados um por vez ([boot-per-profile.md](boot-per-profile.md)) |
+| `boot-de2-115`, `boot-seq-de2-115` | `de2-115` | `config.boot-de2-115.yaml`, `config.boot-seq-de2-115.yaml` | Os mesmos da DE0-CV, na DE2-115 |
 
 Os programas `uart-echo`, `uart-tx`, `uart-errors` e `uart-stdio` usam os pinos da UART, que as placas não têm ligados. O `hex-id` pausa para uma pessoa ler o display, e por isso o runner dá a ele um timeout de 90 s.
 
