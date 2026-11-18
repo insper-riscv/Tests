@@ -96,7 +96,7 @@ sim:
   - Insper-RISC-V/Core/src/Zicclsm/misaligned_unit.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_decode.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_unit.vhd
-  - Insper-RISC-V/Core/src/Zicntr/counter64.vhd
+  - Insper-RISC-V/Common-Components/src/counter64.vhd
   - Insper-RISC-V/Core/src/Zicntr/tick_divider.vhd
   - Insper-RISC-V/Core/src/Zihpm/hpm_counter_bank.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_decode.vhd
