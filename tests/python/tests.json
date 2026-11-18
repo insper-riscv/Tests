@@ -887,8 +887,7 @@
         ],
         "test_module": "tests.python.unittests.irq.programs",
         "parameters": {
-            "time_external": true,
-            "periph_slots": "00000001"
+            "time_external": true
         },
         "build_args": [
             "--std=08"
