@@ -10,8 +10,8 @@
 #define RV32_PLATFORM_H
 
 #define RV32_RAM_BASE    0x40000000   /* primeiro byte da RAM: a SDRAM da de0-cv */
-#define RV32_RAM_END     0x44000000   /* um após o último byte da RAM */
-#define RV32_TOHOST      0x43FFFFE8   /* tohost do HTIF, 8 bytes; o fromhost fica 8 bytes acima */
+#define RV32_RAM_END     0x42000000   /* um após o último byte da RAM */
+#define RV32_TOHOST      0x41FFFFE8   /* tohost do HTIF, 8 bytes; o fromhost fica 8 bytes acima */
 
 #ifndef RV32_CLINT_BASE
 #define RV32_CLINT_BASE  0xE0000000   /* o CLINT da de0-cv (slot 6) */

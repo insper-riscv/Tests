@@ -22,7 +22,7 @@ jobs:
     # Only runs on main (or on demand) — needs Quartus and the
     # board attached over JTAG, so it stays off feature
     # branches/PRs by default.
-    runs-on: [self-hosted, quartus, fpga]   # <<< ADJUST to match your runner's labels
+    runs-on: [self-hosted, quartus, DE0-CV]
     env:
       # the image with GHDL, the RISC-V GCC, Spike and uv that the toolchain steps use
       IMAGE: ghcr.io/insper-riscv/ci-elf:latest

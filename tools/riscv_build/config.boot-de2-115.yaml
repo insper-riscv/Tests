@@ -1,0 +1,9 @@
+# Os programas de boot (c-boot/) na plataforma de2-115: os mesmos da DE0-CV (config.boot-de0-cv.yaml), no núcleo do
+# bitstream da DE2-115.
+extends: config.platform-de2-115.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-de2-115
+  build_dir: build-boot-de2-115
+  c_dir: c-boot
+  asm_dir: asm-boot
