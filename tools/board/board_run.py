@@ -69,6 +69,11 @@ class Stage(TypedDict):
         Pacote de placa da etapa; o padrão é a DE0-CV.
     extensions : NotRequired[tuple[str, ...]]
         Extensões que a plataforma liga, quando a etapa filtra os programas por elas.
+    sequence : NotRequired[list[str]]
+        Programas rodados um por vez, nesta ordem e com repetição, para provar que a BOOT aceita o teste
+        seguinte depois de um que passa, de um que falha e de um que trava.
+    expect : NotRequired[dict[str, str]]
+        O veredito esperado de cada programa da sequência, quando não é PASS.
     """
 
     config: str
@@ -76,7 +81,25 @@ class Stage(TypedDict):
     timeouts: NotRequired[dict[str, int]]
     board: NotRequired[str]
     extensions: NotRequired[tuple[str, ...]]
+    sequence: NotRequired[list[str]]
+    expect: NotRequired[dict[str, str]]
 
+
+# A sequência de dez testes da espera entre testes: um FAIL e um travamento no meio, e o teste seguinte de cada um
+# tem de rodar. O veredito esperado dos que não passam fica ao lado.
+BOOT_SEQUENCE = [
+    "boot-seq-pass",
+    "boot-seq-pass",
+    "boot-seq-pass",
+    "boot-seq-fail",
+    "boot-seq-pass",
+    "boot-seq-hang",
+    "boot-seq-pass",
+    "boot-seq-pass",
+    "boot-seq-fail",
+    "boot-seq-pass",
+]
+BOOT_EXPECT = {"boot-seq-fail": "FAIL", "boot-seq-hang": "TIMEOUT"}
 
 STAGES: dict[str, Stage] = {
     "regression": {
@@ -96,6 +119,19 @@ STAGES: dict[str, Stage] = {
     "irq": {
         "config": "config.sdram-flash-irq.yaml",
         "exclude": {},
+    },
+    # Os programas de boot (c-boot/): o estado que a BOOT deixa na main e a espera entre testes. O núcleo é o
+    # do bitstream que a placa tem, então o `boot-state` confere as extensões que esse núcleo liga.
+    "boot": {
+        "config": "config.boot-de0-cv.yaml",
+        "exclude": {},
+    },
+    # Dez testes seguidos com um FAIL e um travamento no meio: o teste seguinte de cada um tem de rodar.
+    "boot-seq": {
+        "config": "config.boot-seq-de0-cv.yaml",
+        "exclude": {},
+        "sequence": BOOT_SEQUENCE,
+        "expect": BOOT_EXPECT,
     },
     # A DE2-115: a FLASH NOR e a SDRAM de 32 bits (N4) e a versão com as memórias emuladas (N2).
     "de2-115": {
@@ -123,6 +159,19 @@ STAGES: dict[str, Stage] = {
         },
         "board": "de2-115",
         "timeouts": {"hex-id": 90},
+    },
+    # Os programas de boot e a sequência da espera entre testes na DE2-115, os mesmos da DE0-CV.
+    "boot-de2-115": {
+        "config": "config.boot-de2-115.yaml",
+        "exclude": {},
+        "board": "de2-115",
+    },
+    "boot-seq-de2-115": {
+        "config": "config.boot-seq-de2-115.yaml",
+        "exclude": {},
+        "board": "de2-115",
+        "sequence": BOOT_SEQUENCE,
+        "expect": BOOT_EXPECT,
     },
     # A DE0-Nano (RV32I com Zicsr) e a DE10-Lite (perfil completo): `extensions` lista as extensões que a
     # plataforma liga, e o `prepare` só compila os programas cujo cabeçalho `RV32_EXT` cita extensões dessa lista.
@@ -268,7 +317,7 @@ def board_command(host: str, sub: str, *extra: str) -> list[str]:
     Parameters
     ----------
     host : str
-        O rótulo do host (``laptop`` ou ``ws``), que entra no nome da trava.
+        O rótulo do host (``laptop`` ou o hostname curto da máquina), que entra no nome da trava.
     sub : str
         ``select`` ou ``lock``.
     *extra : str
@@ -325,7 +374,7 @@ def board_session(host: str, wait_s: int = LOCK_WAIT_S, free: bool = False) -> G
     Parameters
     ----------
     host : str
-        O rótulo do host, ``laptop`` ou ``ws``.
+        O rótulo do host, ``laptop`` ou o hostname curto da máquina.
     wait_s : int
         Quanto esperar pela trava antes de desistir.
     free : bool
@@ -460,6 +509,77 @@ def partition(names: list[str], part: str) -> list[str]:
     return names[index::count]
 
 
+def run_sequence(stage: str, host: str, part: str, out: Path, cable: str) -> dict[str, str]:
+    """Roda os programas de uma etapa de sequência, um por vez e na ordem da lista.
+
+    Cada programa é uma execução própria do ``riscv-tools run``, que grava a imagem na FLASH e toca a
+    campainha, como acontece entre dois testes de uma suíte. O resultado de cada posição é PASS quando o
+    veredito é o esperado para o programa (PASS, ou o da chave ``expect``) e traz os dois vereditos quando não é.
+
+    Parameters
+    ----------
+    stage : str
+        Nome da etapa, com a lista ``sequence``.
+    host : str
+        ``laptop`` ou o hostname curto da máquina, só para o nome do log.
+    part : str
+        Fatia ``I/N`` da lista; a sequência inteira roda na fatia 0 e as outras não têm o que rodar.
+    out : Path
+        Onde o log da etapa é escrito.
+    cable : str
+        O cabo da placa travada.
+
+    Returns
+    -------
+    dict of {str: str}
+        Uma entrada ``NN-programa`` por posição da sequência.
+    """
+    if int(part.split("/")[0]) != 0:
+        return {}
+    config = STAGES[stage]["config"]
+    expect = STAGES[stage].get("expect", {})
+    known = set(manifest_names(stage))
+    log = out / f"{stage}-{host}.log"
+    log.write_text("", encoding="utf-8")
+    results: dict[str, str] = {}
+    for index, name in enumerate(STAGES[stage].get("sequence", []), start=1):
+        if name not in known:
+            raise RuntimeError(f"{name} não está no manifesto da etapa {stage}")
+        done = subprocess.run(
+            tools_command()
+            + ["--cable", cable, "--config", f"{BUILD}/{config}", "run", "--skip-reconfigure", "--skip-recompile"]
+            + ["--only", name],
+            cwd=TESTS_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        with open(log, "a", encoding="utf-8") as handle:
+            handle.write(f"## {index:02d} {name}\n{done.stdout}{done.stderr}")
+        results[f"{index:02d}-{name}"] = sequence_verdict(
+            parse_verdicts(done.stdout).get(name, "TIMEOUT"), expect.get(name, "PASS")
+        )
+    return results
+
+
+def sequence_verdict(found: str, wanted: str) -> str:
+    """Compara o veredito de um programa da sequência com o esperado.
+
+    Parameters
+    ----------
+    found : str
+        PASS, FAIL ou TIMEOUT, o que a placa deu.
+    wanted : str
+        O veredito esperado do programa.
+
+    Returns
+    -------
+    str
+        PASS quando os dois coincidem, senão ``<achado> (esperado <esperado>)``.
+    """
+    return "PASS" if found == wanted else f"{found} (esperado {wanted})"
+
+
 def run_stage(stage: str, host: str, part: str, out: Path, cable: str) -> dict[str, str]:
     """Roda uma etapa na placa e devolve o veredito de cada programa.
 
@@ -468,7 +588,7 @@ def run_stage(stage: str, host: str, part: str, out: Path, cable: str) -> dict[s
     stage : str
         Nome da etapa.
     host : str
-        ``laptop`` ou ``ws``, só para o nome do log.
+        ``laptop`` ou o hostname curto da máquina, só para o nome do log.
     part : str
         Fatia ``I/N`` da lista.
     out : Path
@@ -481,6 +601,8 @@ def run_stage(stage: str, host: str, part: str, out: Path, cable: str) -> dict[s
     dict of {str: str}
         PASS, FAIL ou TIMEOUT por programa.
     """
+    if "sequence" in STAGES[stage]:
+        return run_sequence(stage, host, part, out, cable)
     config = STAGES[stage]["config"]
     excluded = set(STAGES[stage]["exclude"])
     names = [n for n in manifest_names(stage) if n not in excluded]
@@ -638,7 +760,7 @@ def main() -> None:
             "--board",
             dest="host",
             required=True,
-            help="rótulo do host da placa (laptop ou ws), no nome da trava e dos arquivos",
+            help="rótulo do host da placa (laptop ou o hostname curto da máquina), no nome da trava e dos arquivos",
         )
         p.add_argument("--part", default="0/1", help="fatia I/N da lista, ou auto")
         p.add_argument("--sof", help="bitstream a programar")

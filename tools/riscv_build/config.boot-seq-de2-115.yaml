@@ -1,0 +1,9 @@
+# A sequência da espera entre testes (c-boot-seq/) na plataforma de2-115, a mesma da DE0-CV
+# (config.boot-seq-de0-cv.yaml): programas que passam, que falham e que travam de propósito.
+extends: config.platform-de2-115.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-de2-115
+  build_dir: build-boot-seq-de2-115
+  c_dir: c-boot-seq
+  asm_dir: asm-boot

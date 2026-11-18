@@ -17,6 +17,8 @@ Without `--stages`, the runner runs the DE0-CV stages, because a session locks o
 | `de10-lite-regression`, `de10-lite-sdram`, `de10-lite-irq` | `de10-lite` | `config.lite-regression.yaml`, `config.lite-sdram.yaml`, `config.lite-irq.yaml` | The same programs as the DE0-CV, on the full profile |
 | `de2-115` | `de2-115` | `config.de2-115.yaml` | The programs of `asm/`, `c/`, `asm-sdram/` and `c-sdram/` with the NOR FLASH and the 32-bit SDRAM |
 | `de2-115-n2` | `de2-115` | `config.de2-115-n2.yaml` | The programs that fit the 128 KiB emulated RAM, without those of the 16 MB SDRAM window |
+| `boot`, `boot-seq` | `de0-cv` | `config.boot-de0-cv.yaml`, `config.boot-seq-de0-cv.yaml` | The boot programs of `c-boot/` and the ten-test sequence of `c-boot-seq/`, run one at a time ([boot-per-profile.md](boot-per-profile.md)) |
+| `boot-de2-115`, `boot-seq-de2-115` | `de2-115` | `config.boot-de2-115.yaml`, `config.boot-seq-de2-115.yaml` | The same as on the DE0-CV, on the DE2-115 |
 
 `uart-echo`, `uart-tx`, `uart-errors` and `uart-stdio` use the UART pins, which the boards do not have wired. `hex-id` pauses for a person to read the display, so the runner gives it a 90 s timeout.
 
@@ -32,7 +34,7 @@ The `RISCV_TOOLS` variable gives the `riscv-tools` command, for example `uv run 
 
 ## 3. Two boards in parallel
 
-The `--part I/N` option splits the sorted list: board `I` runs the items of index `I` modulo `N`. The host label (`--host laptop` or `--host ws`, also accepted as `--board`) goes into the lock name, `de0cv-laptop.lock` and `de0cv-ws.lock`, the same file the other users of the board take. With `--part auto` the runner takes a free board of the host and splits the list among all the boards of the platform that the host has, in the order of their identifiers.
+The `--part I/N` option splits the sorted list: board `I` runs the items of index `I` modulo `N`. The host label (`--host`, also accepted as `--board`) is the short hostname of the machine, given by `hostname -s`, or `laptop` on the notebook; it goes into the lock name, such as `de0cv-laptop.lock` or `de0cv-<hostname>.lock`, the same file the other users of the board take. With `--part auto` the runner takes a free board of the host and splits the list among all the boards of the platform that the host has, in the order of their identifiers.
 
 ```bash
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
@@ -44,14 +46,14 @@ RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
 Certification generates the board target with `gen_profiles.py --profile rv32im_full_zifencei --board --out build/target` and builds the ELFs with `riscv-tools --config build/target/config.yaml certify-board --build-only`, in the `ci-act4` image. The runner then runs:
 
 ```bash
-python3 tools/board/board_run.py act --host ws --part 1/2 --sof de0-cv.sof \
+python3 tools/board/board_run.py act --host "$(hostname -s)" --part 1/2 --sof de0-cv.sof \
   --config <Certification>/build/target/config.yaml --root <Certification> \
   --target rv32im_full_zifencei__board
 ```
 
 ## 5. Update programs, reduced Zihpm and PLIC
 
-`tools/board/board_update.py` drives the programs that `riscv-tools run` alone does not. It takes the lock of the DE0-CV with `board_session`, from the same `board_run.py`, and exports the cable of the locked board in `RISCV_TOOLS_CABLE` for the `riscv-tools` that opens the JTAG. The `--host laptop` or `--host ws` option (also accepted as `--board`) picks the host label, and `--skip-lock` is for whoever already holds the lock and exports the cable.
+`tools/board/board_update.py` drives the programs that `riscv-tools run` alone does not. It takes the lock of the DE0-CV with `board_session`, from the same `board_run.py`, and exports the cable of the locked board in `RISCV_TOOLS_CABLE` for the `riscv-tools` that opens the JTAG. The `--host` option (also accepted as `--board`) picks the host label, the short hostname of the machine or `laptop` on the notebook, any text without `/` or whitespace, and `--skip-lock` is for whoever already holds the lock and exports the cable.
 
 | Stage | Programs | Driving |
 | :--- | :--- | :--- |
@@ -82,7 +84,7 @@ On the platforms that turn on only part of the extensions, `prepare` compiles on
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
   python3 tools/board/board_run.py prepare --stages de0-nano-regression de0-nano-sdram
 RISCV_TOOLS="uv run --project ../Tools riscv-tools" \
-  python3 tools/board/board_run.py run --stages de0-nano-regression de0-nano-sdram --host ws --sof de0-nano.sof
+  python3 tools/board/board_run.py run --stages de0-nano-regression de0-nano-sdram --host "$(hostname -s)" --sof de0-nano.sof
 ```
 
 The results of each board are in [board-results.md](board-results.md).
