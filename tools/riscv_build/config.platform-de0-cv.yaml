@@ -161,6 +161,7 @@ sim:
     SIM_SAMPLE_CLOCK: pll_clk_idexmem
     UART_START_ON_ACCESS: '1'
     UART_INDEX: '1'
+    RAM_CHIP_OFFSET: '0x2000000'
   ghdl_std: 08
   parameters:
     BOOT_MEMORY_FILE: '{boot_memory_hex_path}'
