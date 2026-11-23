@@ -41,8 +41,8 @@ sim:
   - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
   - Insper-RISC-V/src/cyclone-v/de0-cv/config_pkg.vhd
   - Insper-RISC-V/src/cyclone-v/de0-cv/de0_cv_map_pkg.vhd
-  - Insper-RISC-V/src/interconnect/interconnect_pkg.vhd
-  - Insper-RISC-V/src/interconnect/ext_interconnect.vhd
+  - Insper-RISC-V/base/src/interconnect/interconnect_pkg.vhd
+  - Insper-RISC-V/base/src/interconnect/ext_interconnect.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/clk_gen_3way.vhd
   - Insper-RISC-V/Core/src/shared/pipeline_types.vhd
   - Insper-RISC-V/Core/src/shared/byte_mask_consts.vhd
