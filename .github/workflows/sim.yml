@@ -112,6 +112,12 @@ jobs:
           echo "== $arch $base $z: --profile $profile --memory $memory"
           riscv-tools --profile "$profile" --memory "$memory" platform sync --prefix Insper-RISC-V \
             --source "$platform" --output tools/riscv_build/config.generated.yaml || exit 2
+          # The headers of the boot memory (boot_config.h: RV32_IS_E, RV32_HAS_<extension>) and the map are
+          # generated for this profile and memory, in this variation's own copy: the committed ones are for the
+          # full profile, and the RV32E base does not assemble the boot_core.S that clears x16..x31.
+          platform_yaml=${platform#Insper-RISC-V/}; platform_yaml=${platform_yaml%config.yaml}platform.yaml
+          riscv-tools --profile "$profile" --memory "$memory" --root Insper-RISC-V generate-memory-map \
+            --platform "$platform_yaml" || exit 2
           cat > tools/riscv_build/config.variation.yaml <<EOC
           extends: config.generated.yaml
           paths:
