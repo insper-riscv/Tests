@@ -1,6 +1,10 @@
 {
   "include": {"platform": "src/simulation/internal-mem/platform.yaml"},
-  "include-sdram": {"platform": "src/cyclone-v/de0-cv/platform.yaml"},
+  "include-sdram": {
+    "platform": "src/cyclone-v/de0-cv/platform.yaml",
+    "ignore": ["RV32_FLASH_CTRL_BASE"]
+  },
+  "include-sdram-emulated": {"platform": "src/cyclone-v/de0-cv-emulated/platform.yaml"},
   "include-de0-nano": {"platform": "src/cyclone-iv-e/de0-nano/platform.yaml"},
   "include-de10-lite": {"platform": "src/max-10/de10-lite/platform.yaml"},
   "include-de2-115": {"platform": "src/cyclone-iv-e/de2-115/platform.yaml"},
@@ -10,7 +14,10 @@
   "include-fpga-external-instruction": {"platform": "src/cyclone-v/fpga-external-instruction/platform.yaml"},
   "include-fpga-sdram": {"platform": "src/cyclone-v/fpga-external/platform.yaml"},
   "include-plic": {"platform": "src/simulation/modular/platform.yaml"},
-  "include-plic-de0-cv": {"platform": "src/cyclone-v/de0-cv/platform.yaml"},
+  "include-plic-de0-cv": {
+    "platform": "src/cyclone-v/de0-cv/platform.yaml",
+    "ignore": ["RV32_FLASH_CTRL_BASE"]
+  },
   "include-irq": {
     "platform": "src/simulation/internal-mem/platform.yaml",
     "ignore": ["RV32_CLINT_BASE"]

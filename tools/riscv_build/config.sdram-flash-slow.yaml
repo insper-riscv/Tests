@@ -4,7 +4,7 @@ extends: config.sdram-flash.yaml
 
 sim:
   parameters:
-    FLASH_FIRST_LATENCY: "120"
-    FLASH_NEXT_LATENCY: "20"
+    FLASH_FIRST_LATENCY: false
+    FLASH_NEXT_LATENCY: false
   env:
     SIM_TIMEOUT_CYCLES: "8000000"

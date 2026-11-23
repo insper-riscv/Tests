@@ -8,10 +8,10 @@
 #define RV32_PLATFORM_H
 
 #define RV32_RAM_BASE    0x40000000   /* primeiro byte da RAM (a SDRAM) */
-#define RV32_RAM_END     0x44000000   /* um após o último byte da RAM */
-#define RV32_STDOUT_BASE 0x43FFFBE0   /* o buffer de stdout, no topo da RAM */
-#define RV32_TOHOST      0x43FFFFE8   /* tohost do HTIF, 8 bytes */
-#define RV32_FROMHOST    0x43FFFFF0   /* fromhost do HTIF */
+#define RV32_RAM_END     0x42000000   /* um após o último byte da RAM */
+#define RV32_STDOUT_BASE 0x41FFFBE0   /* o buffer de stdout, no topo da RAM */
+#define RV32_TOHOST      0x41FFFFE8   /* tohost do HTIF, 8 bytes */
+#define RV32_FROMHOST    0x41FFFFF0   /* fromhost do HTIF */
 
 #define RV32_FLASH_CTRL_BASE 0xB0000000
 #define RV32_UART_BASE       0xC0000000   /* a UART JTAG, slot 4 */

@@ -19,7 +19,7 @@ permissions:
 jobs:
   # Passos rapidos que nao simulam nada: harness do host, configs das plataformas, mapa de memoria.
   sim-host:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 15
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -42,6 +42,7 @@ jobs:
           platform_sync Insper-RISC-V/src/simulation/internal-mem/config.yaml tools/riscv_build/config.platform-internal-mem.yaml
           platform_sync Insper-RISC-V/src/simulation/internal-mem/config.fpga-sim.yaml tools/riscv_build/config.platform-internal-mem-fpga-sim.yaml
           platform_sync Insper-RISC-V/src/cyclone-v/de0-cv/config.yaml tools/riscv_build/config.platform-de0-cv.yaml
+          platform_sync Insper-RISC-V/src/cyclone-v/de0-cv-emulated/config.yaml tools/riscv_build/config.platform-de0-cv-emulated.yaml
 
       - name: Generate rv32_test.h
         run: riscv-tools --config tools/riscv_build/config.yaml generate-header
@@ -60,7 +61,7 @@ jobs:
   # instrucoes) ainda nao tem topo de simulacao que rode os programas deste repositorio: veja o README.
   sim-matrix:
     name: sim-${{ matrix.arch }}-${{ matrix.base }}
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 120
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -112,6 +113,12 @@ jobs:
           echo "== $arch $base $z: --profile $profile --memory $memory"
           riscv-tools --profile "$profile" --memory "$memory" platform sync --prefix Insper-RISC-V \
             --source "$platform" --output tools/riscv_build/config.generated.yaml || exit 2
+          # The headers of the boot memory (boot_config.h: RV32_IS_E, RV32_HAS_<extension>) and the map are
+          # generated for this profile and memory, in this variation's own copy: the committed ones are for the
+          # full profile, and the RV32E base does not assemble the boot_core.S that clears x16..x31.
+          platform_yaml=${platform#Insper-RISC-V/}; platform_yaml=${platform_yaml%config.yaml}platform.yaml
+          riscv-tools --profile "$profile" --memory "$memory" --root Insper-RISC-V generate-memory-map \
+            --platform "$platform_yaml" || exit 2
           cat > tools/riscv_build/config.variation.yaml <<EOC
           extends: config.generated.yaml
           paths:
@@ -124,6 +131,15 @@ jobs:
           excl="$skip"
           # Without Zicclsm a misaligned access traps instead of running: these two programs measure it.
           case $z in none|fencei) excl="$excl misaligned-crossing wb-hold-crossing";; esac
+          # With Zicclsm a misaligned access runs instead of trapping, so the program that expects the trap does not apply.
+          case $z in clsm|clsm_fencei) excl="$excl trap-misaligned-ldst";; esac
+          # The profile has none of Zicond and Zimop (they are not part of the profile names): the programs that
+          # need them do not apply.
+          for src in c/*/src.* asm/*/src.*; do
+            if grep -qE '^[[:space:]]*//[[:space:]]*RV32_EXT:.*(Zicond|Zimop)' "$src"; then
+              name=${src#*/}; excl="$excl ${name%%/*}"
+            fi
+          done
           # RV32E has 16 registers: an asm program that names x16..x31 (or a6, a7, s2..s11, t3..t6)
           # does not assemble, so it does not apply to the E base.
           if [ "$base" = e ]; then
@@ -189,7 +205,7 @@ jobs:
 
   # Os programas que usam a SDRAM, na plataforma com a FLASH atras das caches.
   sim-sdram-flash:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -217,7 +233,7 @@ jobs:
 
   # Os mesmos programas com um chip de FLASH lento: nada pode depender da latencia.
   sim-flash-slow:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -247,7 +263,7 @@ jobs:
   # controlador e reinicia; a boot ROM executa a banca nova (flash-update) ou volta à banca A (flash-update-interrupted).
   # Com o chip de FLASH rápido e com o lento: o resultado não pode depender da latência.
   sim-update:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 45
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -280,7 +296,7 @@ jobs:
           if-no-files-found: ignore
 
   unit-vhdl:
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 30
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
@@ -306,7 +322,7 @@ jobs:
   # na main e a pedido (nao atrasa o PR). Um job pulado conta como sucesso no agregador.
   regression:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-26.04
+    runs-on: ${{ (vars.RUNNERS_SIM == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","sim"]') }}
     timeout-minutes: 120
     container:
       image: ghcr.io/insper-riscv/ci-elf:latest
