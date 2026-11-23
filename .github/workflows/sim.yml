@@ -42,6 +42,7 @@ jobs:
           platform_sync Insper-RISC-V/src/simulation/internal-mem/config.yaml tools/riscv_build/config.platform-internal-mem.yaml
           platform_sync Insper-RISC-V/src/simulation/internal-mem/config.fpga-sim.yaml tools/riscv_build/config.platform-internal-mem-fpga-sim.yaml
           platform_sync Insper-RISC-V/src/cyclone-v/de0-cv/config.yaml tools/riscv_build/config.platform-de0-cv.yaml
+          platform_sync Insper-RISC-V/src/cyclone-v/de0-cv-emulated/config.yaml tools/riscv_build/config.platform-de0-cv-emulated.yaml
 
       - name: Generate rv32_test.h
         run: riscv-tools --config tools/riscv_build/config.yaml generate-header
