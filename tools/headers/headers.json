@@ -4,6 +4,7 @@
     "platform": "src/cyclone-v/de0-cv/platform.yaml",
     "ignore": ["RV32_FLASH_CTRL_BASE"]
   },
+  "include-sdram-emulated": {"platform": "src/cyclone-v/de0-cv-emulated/platform.yaml"},
   "include-de0-nano": {"platform": "src/cyclone-iv-e/de0-nano/platform.yaml"},
   "include-de10-lite": {"platform": "src/max-10/de10-lite/platform.yaml"},
   "include-de2-115": {"platform": "src/cyclone-iv-e/de2-115/platform.yaml"},
