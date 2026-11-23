@@ -130,6 +130,15 @@ jobs:
           excl="$skip"
           # Without Zicclsm a misaligned access traps instead of running: these two programs measure it.
           case $z in none|fencei) excl="$excl misaligned-crossing wb-hold-crossing";; esac
+          # With Zicclsm a misaligned access runs instead of trapping, so the program that expects the trap does not apply.
+          case $z in clsm|clsm_fencei) excl="$excl trap-misaligned-ldst";; esac
+          # The profile has none of Zicond and Zimop (they are not part of the profile names): the programs that
+          # need them do not apply.
+          for src in c/*/src.* asm/*/src.*; do
+            if grep -qE '^[[:space:]]*//[[:space:]]*RV32_EXT:.*(Zicond|Zimop)' "$src"; then
+              name=${src#*/}; excl="$excl ${name%%/*}"
+            fi
+          done
           # RV32E has 16 registers: an asm program that names x16..x31 (or a6, a7, s2..s11, t3..t6)
           # does not assemble, so it does not apply to the E base.
           if [ "$base" = e ]; then
