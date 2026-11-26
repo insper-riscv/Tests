@@ -4,13 +4,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "rv32_platform.h"
 #include "rv32_test.h"
+#include "../../Insper-RISC-V/Peripherals/src/GPIO/soc/driver/c/rv32_gpio.h"
 
-/* Endereco do registrador de direcao do GPIO do motor. */
-static constexpr uintptr_t MOTOR_DIR_ADDRESS = RV32_MOTOR_BASE;
-/* Endereco do registrador que carrega as quatro saidas do motor. */
-static constexpr uintptr_t MOTOR_OUT_ADDRESS = RV32_MOTOR_BASE + UINT32_C(4);
 /* Mascara das quatro entradas IN1 a IN4 do ULN2003. */
 static constexpr uint32_t MOTOR_OUTPUT_MASK = UINT32_C(0xF);
 /* Clock do nucleo no topo fisico internal-mem. */
@@ -45,11 +41,8 @@ static constexpr uint32_t REVERSE_SEQUENCE[SEQUENCE_LENGTH] = {
     UINT32_C(0x1),
 };
 
-/* Converte um endereco MMIO em ponteiro para registrador de 32 bits. */
-static volatile uint32_t *motor_register(uintptr_t address)
-{
-    return (volatile uint32_t *)address;
-}
+/* Instancia do driver ligada ao GPIO do motor pela configuracao da plataforma. */
+static rv32_gpio_t motor_gpio;
 
 /* Le a metade baixa do contador de ciclos do nucleo. */
 static uint32_t read_cycle(void)
@@ -73,7 +66,7 @@ static void wait_cycles(uint32_t cycles)
 static void require(bool condition)
 {
     if (!condition) {
-        *motor_register(MOTOR_OUT_ADDRESS) = UINT32_C(0);
+        rv32_gpio_write(motor_gpio, UINT32_C(0));
         RV32_FAIL(1);
     }
 }
@@ -81,7 +74,7 @@ static void require(bool condition)
 /* Aplica um estado de quatro bits as entradas do ULN2003. */
 static void write_coils(uint32_t value)
 {
-    *motor_register(MOTOR_OUT_ADDRESS) = value;
+    rv32_gpio_write(motor_gpio, value);
 }
 
 /*
@@ -93,7 +86,7 @@ static void validate_sequence(const uint32_t sequence[SEQUENCE_LENGTH])
 {
     for (uint32_t index = 0; index < SEQUENCE_LENGTH; ++index) {
         write_coils(sequence[index]);
-        require(*motor_register(MOTOR_OUT_ADDRESS) == sequence[index]);
+        require(rv32_gpio_read_output(motor_gpio) == sequence[index]);
     }
     write_coils(UINT32_C(0));
 }
@@ -116,10 +109,13 @@ int main(void)
 {
     char command;
 
+    motor_gpio = rv32_gpio_platform_new(RV32_GPIO_DEFAULT_INSTANCE);
+    require(rv32_gpio_valid(motor_gpio));
+
     /* Carrega zero antes de habilitar as quatro linhas como saidas. */
     write_coils(UINT32_C(0));
-    *motor_register(MOTOR_DIR_ADDRESS) = MOTOR_OUTPUT_MASK;
-    require(*motor_register(MOTOR_DIR_ADDRESS) == MOTOR_OUTPUT_MASK);
+    rv32_gpio_direction(motor_gpio, MOTOR_OUTPUT_MASK);
+    require(rv32_gpio_get_direction(motor_gpio) == MOTOR_OUTPUT_MASK);
 
     printf("READY\n");
 
