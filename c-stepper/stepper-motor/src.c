@@ -3,13 +3,9 @@
 // RV32_TIMEOUT_S: 15
 #include <stdint.h>
 
-#include "rv32_platform.h"
 #include "rv32_test.h"
+#include "../../Insper-RISC-V/Peripherals/src/GPIO/soc/driver/c/rv32_gpio.h"
 
-/* Endereço do registrador de direção do GPIO do motor. */
-static constexpr uintptr_t MOTOR_DIR_ADDRESS = RV32_MOTOR_BASE;
-/* Endereço do registrador que carrega as quatro saídas do motor. */
-static constexpr uintptr_t MOTOR_OUT_ADDRESS = RV32_MOTOR_BASE + UINT32_C(4);
 /* Máscara das quatro entradas IN1 a IN4 do ULN2003. */
 static constexpr uint32_t MOTOR_OUTPUT_MASK = UINT32_C(0xF);
 /* Clock do núcleo no topo físico internal-mem. */
@@ -34,11 +30,8 @@ static constexpr uint32_t HALF_STEP_SEQUENCE[SEQUENCE_LENGTH] = {
     UINT32_C(0x9),
 };
 
-/* Converte um endereço MMIO em ponteiro para registrador de 32 bits. */
-static volatile uint32_t *motor_register(uintptr_t address)
-{
-    return (volatile uint32_t *)address;
-}
+/* Instância do driver ligada ao GPIO do motor pela configuração da plataforma. */
+static rv32_gpio_t motor_gpio;
 
 /* Lê a metade baixa do contador de ciclos do núcleo. */
 static uint32_t read_cycle(void)
@@ -70,7 +63,7 @@ static void require(bool condition)
 /* Aplica um estado de quatro bits às entradas do ULN2003. */
 static void write_coils(uint32_t value)
 {
-    *motor_register(MOTOR_OUT_ADDRESS) = value;
+    rv32_gpio_write(motor_gpio, value);
 }
 
 /* Confere o caminho CPU/GPIO e expõe uma sequência curta à simulação. */
@@ -80,7 +73,7 @@ static void validate_half_step_sequence(void)
         uint32_t expected = HALF_STEP_SEQUENCE[index];
 
         write_coils(expected);
-        require(*motor_register(MOTOR_OUT_ADDRESS) == expected);
+        require(rv32_gpio_read_output(motor_gpio) == expected);
     }
     write_coils(UINT32_C(0));
 }
@@ -109,12 +102,15 @@ static void rotate_reverse(uint32_t steps)
 /* Gira cerca de um quarto de volta em cada sentido e desenergiza o motor. */
 int main(void)
 {
+    motor_gpio = rv32_gpio_platform_new(RV32_GPIO_DEFAULT_INSTANCE);
+    require(rv32_gpio_valid(motor_gpio));
+
     /* Carrega zero antes de habilitar as quatro linhas como saídas. */
     write_coils(UINT32_C(0));
-    *motor_register(MOTOR_DIR_ADDRESS) = MOTOR_OUTPUT_MASK;
+    rv32_gpio_direction(motor_gpio, MOTOR_OUTPUT_MASK);
 
-    require(*motor_register(MOTOR_DIR_ADDRESS) == MOTOR_OUTPUT_MASK);
-    require(*motor_register(MOTOR_OUT_ADDRESS) == UINT32_C(0));
+    require(rv32_gpio_get_direction(motor_gpio) == MOTOR_OUTPUT_MASK);
+    require(rv32_gpio_read_output(motor_gpio) == UINT32_C(0));
     validate_half_step_sequence();
 
     rotate_forward(STEPS_PER_DIRECTION);
@@ -123,6 +119,6 @@ int main(void)
 
     /* Nenhuma bobina permanece energizada depois do teste. */
     write_coils(UINT32_C(0));
-    require(*motor_register(MOTOR_OUT_ADDRESS) == UINT32_C(0));
+    require(rv32_gpio_read_output(motor_gpio) == UINT32_C(0));
     RV32_PASS();
 }

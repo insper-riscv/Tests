@@ -6,3 +6,7 @@ paths:
   build_dir: build-stepper
   c_dir: c-stepper
   asm_dir: c-stepper
+  sources:
+    - Insper-RISC-V/src/simulation/internal-mem/runtime/_exit.c
+    - Insper-RISC-V/src/simulation/internal-mem/runtime/stdio.c
+    - Insper-RISC-V/Peripherals/src/GPIO/soc/driver/c/rv32_gpio.c
