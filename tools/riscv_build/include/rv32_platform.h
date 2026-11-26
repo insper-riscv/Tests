@@ -13,6 +13,7 @@
 #define RV32_STDOUT_BASE 0x0002FBE0   /* o buffer de stdout, no topo da RAM */
 
 #define RV32_TOHOST      0x0002FFE8   /* tohost do HTIF, 8 bytes; o fromhost fica 8 bytes acima */
+#define RV32_MOTOR_BASE  0x90000000   /* GPIO de quatro bits ligado ao driver do motor */
 
 #ifdef __ASSEMBLER__
 /* Como um teste em assembly termina, com os nomes do modelo do riscv-arch-test (o rv32_test.h tem os

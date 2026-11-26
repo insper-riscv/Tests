@@ -17,6 +17,7 @@ Real-hardware and simulation test suite of the `RV32IM` RISC-V core, driven by t
 - [boot.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/platform/boot.md): boot state, picolibc `crt0`, and `boot_memory.S`.
 - [atualizacao-de-programa.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/platform/atualizacao-de-programa.md): FLASH rewrite over JTAG and boot handoff between tests.
 - [simulacao.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/guide/simulacao.md): hardware-top simulation with the real Quartus memories.
+- [stepper-motor.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/en/platform/stepper-motor.md): JP2 GPIO, pinout, and test program for the 28BYJ-48 motor with ULN2003.
 - [docs/en/bugs/pll-lock-loss.md](docs/en/bugs/pll-lock-loss.md), [docs/en/bugs/small-data-section.md](docs/en/bugs/small-data-section.md), and [docs/en/bugs/data-harvard.md](docs/en/bugs/data-harvard.md): PLL lock loss, small data and the `gp` register, and `.data` initialization on the Harvard core.
 - [docs/en/bugs/per-entity-tests-ci-breakage.md](docs/en/bugs/per-entity-tests-ci-breakage.md): the per-entity test suite and the `instructions` group with `skip`.
 
@@ -28,7 +29,8 @@ Real-hardware tests require a workstation with Quartus, a self-hosted GitHub Act
 
 | Path | Contents |
 | :--- | :--- |
-| `asm/`, `c/` | The 130 tests of the suite (90 in assembly and 40 in C), one `<name>/src.S` or `<name>/src.c` per folder |
+| `asm/`, `c/` | The 132 common tests of the suite (91 in assembly and 41 in C), one `<name>/src.S` or `<name>/src.c` per folder |
+| `c-stepper/` | The `stepper-motor` and `stepper-uart` programs, exclusive to the `internal-mem` motor GPIO and run with `config.stepper-motor.yaml` |
 | `asm-hpm-reduced/` | The `hpm-reduced` program, which expects the core with 4 event counters of 40 bits and so lives apart from `asm/` (which runs on the full profile); it runs with `config.hpm-reduced.yaml` |
 | `c-sdram-update/` | The FLASH program update programs, `flash-update` (complete update of bank B) and `flash-update-interrupted` (the header of bank B is not written, the system returns to bank A); each receives the image of `uart_input.txt` over the UART and runs with `config.sdram-flash-update.yaml` (fast chip) and `config.sdram-flash-update-slow.yaml` (slow chip) |
 | `c-sdram-bank-b/` | The bank B program that the update tests send (`update-new`), linked from bank B and packed as version 2; `make flash-update-images` rebuilds it and writes the `uart_input.txt` of the tests |
@@ -61,6 +63,8 @@ riscv-tools --root Insper-RISC-V check-memory-map --platform src/simulation/inte
 ```
 
 The `uart-tx`, `uart-echo`, `uart-errors`, and `uart-stdio` programs run in the simulation of the `internal-mem` platform and on the board because they use the serial pins of the hardware top. `uart-stdio` integrates picolibc `printf` and `scanf` with the TX/RX queues. In the simulations of the `sdram` and `sdram-flash` platforms, whose tops only have the UART over JTAG, they are left out with `--exclude uart-echo,uart-tx,uart-errors,uart-stdio`.
+
+The `stepper-motor` and `stepper-uart` programs use the four-bit GPIO of the `internal-mem` platform and run with `config.stepper-motor.yaml`. The former automatically performs 1024 half steps in each direction. The latter waits for `d` or `e` through `scanf`, performs 1024 half steps in the selected direction, and replies over the UART through `printf`. Simulation injects a command into RX and checks both the TX response and the pin sequence. The JP2-to-ULN2003 wiring is in the motor documentation linked above.
 
 The `hpm-*` programs cover the 29 Zihpm indices. In `asm/`, `hpm-full` expects the full profile (29 counters of 64 bits), while `hpm-sweep`, `hpm-fused-high` and `hpm-inhibit-select` adapt to the profile of the core. `hpm-reduced` expects 4 counters of 40 bits and runs in another configuration:
 

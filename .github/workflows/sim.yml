@@ -53,6 +53,28 @@ jobs:
       - name: Check the memory map of the de0-cv platform, with the FLASH behind the caches
         run: riscv-tools --root Insper-RISC-V check-memory-map --platform src/cyclone-v/de0-cv/platform.yaml
 
+  sim-stepper:
+    name: sim-stepper-motor
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/insper-riscv/ci-elf:latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Generate the test header
+        run: riscv-tools --config tools/riscv_build/config.stepper-motor.yaml generate-header
+
+      - name: Build and simulate the stepper motor program
+        run: |
+          riscv-tools --config tools/riscv_build/config.stepper-motor.yaml compile --emit hex
+          riscv-tools --config tools/riscv_build/config.stepper-motor.yaml sim
+
   # A matriz: arquitetura de memoria x base. As variacoes Z rodam DENTRO do job, em paralelo (xargs -P),
   # cada uma numa copia do checkout (variations/<arq>-<base>-<z>), e o resumo lista cada uma.
   #   a = ROM e RAM internas, sem caches (topo internal-mem)

@@ -112,6 +112,12 @@ sim:
   - Insper-RISC-V/Core/src/core/core.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/ram_simulation.vhd
   - Insper-RISC-V/Memory/src/ROM/SoC/rom_simulation.vhd
+  - Insper-RISC-V/Common-Components/src/synchronizer.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_pkg.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_operation_decoder.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_cell.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_group.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uart2BusTop_pkg.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/baudGen.vhd
   - Insper-RISC-V/Peripherals/src/UART/serial/vendor/opencores_uart2bus/uartRx.vhd

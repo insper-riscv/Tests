@@ -1,0 +1,8 @@
+# Programas do motor no topo físico simulado com os modelos de memória do Quartus.
+extends: config.platform-internal-mem-fpga-sim.yaml
+
+paths:
+  include_dir: tools/riscv_build/include
+  build_dir: build-stepper
+  c_dir: c-stepper
+  asm_dir: c-stepper

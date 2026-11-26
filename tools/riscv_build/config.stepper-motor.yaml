@@ -1,0 +1,8 @@
+# Programas do motor de passos, exclusivos da plataforma internal-mem.
+extends: config.platform-internal-mem.yaml
+
+paths:
+  include_dir: tools/riscv_build/include
+  build_dir: build-stepper
+  c_dir: c-stepper
+  asm_dir: c-stepper
