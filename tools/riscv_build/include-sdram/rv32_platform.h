@@ -8,10 +8,10 @@
 #define RV32_PLATFORM_H
 
 #define RV32_RAM_BASE    0x40000000   /* primeiro byte da RAM (a SDRAM) */
-#define RV32_RAM_END     0x44000000   /* um após o último byte da RAM */
-#define RV32_STDOUT_BASE 0x43FFFBE0   /* o buffer de stdout, no topo da RAM */
+#define RV32_RAM_END     0x42000000   /* um após o último byte da RAM */
+#define RV32_STDOUT_BASE 0x41FFFBE0   /* o buffer de stdout, no topo da RAM */
 
-#define RV32_TOHOST      0x43FFFFE8   /* tohost do HTIF, 8 bytes; o fromhost fica 8 bytes acima */
+#define RV32_TOHOST      0x41FFFFE8   /* tohost do HTIF, 8 bytes; o fromhost fica 8 bytes acima */
 
 #define RV32_UART_BASE       0xC0000000   /* UART JTAG, slot 4: txdata +0x0, rxdata +0x4, status +0x8 */
 #define RV32_FLASH_CTRL_BASE 0xB0000000   /* controlador da FLASH, slot 3: CMD, ADDR, STATUS, BUF_PTR, BUF_DATA (deslocamentos de palavra 0 a 4) */
@@ -20,9 +20,9 @@
  * cabeçalho de 256 bytes, com este número mágico, e depois o programa. */
 #define RV32_IMAGE_MAGIC 0x52564946
 #define RV32_BANK_A_BASE 0x00001000
-#define RV32_BANK_A_SIZE 0x0001F000
-#define RV32_BANK_B_BASE 0x00020000
-#define RV32_BANK_B_SIZE 0x00020000
+#define RV32_BANK_A_SIZE 0x00FFF000
+#define RV32_BANK_B_BASE 0x01000000
+#define RV32_BANK_B_SIZE 0x01000000
 
 #define RV32_CLINT_BASE  0xE0000000   /* CLINT, slot 6 (64 KiB): msip +0x0, mtimecmp +0x4000, mtime +0xBFF8 */
 #define RV32_TICK_CYCLES 77           /* ciclos de clock por tick do mtime e do csr time (interrupts.clock_hz / mtime_hz) */

@@ -2,19 +2,19 @@
 # Do not edit by hand: change the platform config and run the command again.
 # The paths of the platform start with `Insper-RISC-V/`, its submodule folder.
 toolchain:
+  specs: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/rv32im-fpga-bank-a.specs
   gcc: riscv32-unknown-elf-gcc
   objcopy: riscv32-unknown-elf-objcopy
-  specs: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/rv32im-fpga-bank-a.specs
-isa:
-  base: i
-  default_ext: ''
-  canonical_order: MAFDQLCBJTPVNH
 paths:
+  boot_memory_linker_script: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/boot_memory.ld
   sources:
   - Insper-RISC-V/src/cyclone-v/de0-cv/runtime/_exit.c
   - Insper-RISC-V/src/cyclone-v/de0-cv/runtime/stdio.c
   boot_memory: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/boot_memory.S
-  boot_memory_linker_script: Insper-RISC-V/src/cyclone-v/de0-cv/runtime/boot_memory.ld
+isa:
+  base: i
+  default_ext: ''
+  canonical_order: MAFDQLCBJTPVNH
 quartus:
   project_dir: Insper-RISC-V/build/de0-cv-de0-cv
   project_name: de0_cv_de0_cv
@@ -38,8 +38,11 @@ quartus:
 sim:
   toplevel: rv32im_sdram_flash_sim_test
   vhdl_sources:
+  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
+  - Insper-RISC-V/src/cyclone-v/de0-cv/config_pkg.vhd
   - Insper-RISC-V/src/cyclone-v/de0-cv/de0_cv_map_pkg.vhd
-  - Insper-RISC-V/src/interconnect/ext_interconnect.vhd
+  - Insper-RISC-V/base/src/interconnect/interconnect_pkg.vhd
+  - Insper-RISC-V/base/src/interconnect/ext_interconnect.vhd
   - Insper-RISC-V/src/simulation/internal-mem/rtl/clk_gen_3way.vhd
   - Insper-RISC-V/Core/src/shared/pipeline_types.vhd
   - Insper-RISC-V/Core/src/shared/byte_mask_consts.vhd
@@ -68,11 +71,13 @@ sim:
   - Insper-RISC-V/Common-Components/src/generic_register.vhd
   - Insper-RISC-V/Common-Components/src/flip_flop.vhd
   - Insper-RISC-V/Common-Components/src/clearable_register.vhd
-  - Insper-RISC-V/Common-Components/src/utils_pkg.vhd
   - Insper-RISC-V/Common-Components/src/mux_2x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_4x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_8x1.vhd
   - Insper-RISC-V/Common-Components/src/mux_tree.vhd
+  - Insper-RISC-V/Common-Components/src/mux_16x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_32x1.vhd
+  - Insper-RISC-V/Common-Components/src/mux_64x1.vhd
   - Insper-RISC-V/Common-Components/src/onehot_decoder.vhd
   - Insper-RISC-V/Core/src/shared/reg_file.vhd
   - Insper-RISC-V/Core/src/shared/control_unit.vhd
@@ -97,7 +102,7 @@ sim:
   - Insper-RISC-V/Core/src/Zicclsm/misaligned_unit.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_decode.vhd
   - Insper-RISC-V/Core/src/Zicond/zicond_unit.vhd
-  - Insper-RISC-V/Core/src/Zicntr/counter64.vhd
+  - Insper-RISC-V/Common-Components/src/counter64.vhd
   - Insper-RISC-V/Core/src/Zicntr/tick_divider.vhd
   - Insper-RISC-V/Core/src/Zihpm/hpm_counter_bank.vhd
   - Insper-RISC-V/Core/src/Zicsr/csr_decode.vhd
@@ -114,9 +119,8 @@ sim:
   - Insper-RISC-V/Core/src/core/stage_wb.vhd
   - Insper-RISC-V/Core/src/core/core.vhd
   - Insper-RISC-V/Memory/src/ROM/SoC/rom_simulation.vhd
-  - Insper-RISC-V/Memory/src/ROM/SoC/flash_simulation.vhd
-  - Insper-RISC-V/Memory/src/cache/SoC/flash_cmd_port.vhd
   - Insper-RISC-V/Common-Components/src/synchronizer.vhd
+  - Insper-RISC-V/Memory/src/ROM/SoC/chip_timing_pkg.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/sdram/sdram_pkg.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/sdram/sdram_ctrl.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/sdram/sdram_cpu_bridge.vhd
@@ -125,64 +129,66 @@ sim:
   - Insper-RISC-V/Memory/src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/sim/sdram_model.vhd
   - Insper-RISC-V/Memory/src/RAM/SoC/sim/sdram_system.vhd
+  - Insper-RISC-V/Memory/src/cache/SoC/cache_pkg.vhd
   - Insper-RISC-V/Memory/src/cache/SoC/dcache.vhd
   - Insper-RISC-V/Memory/src/cache/SoC/icache.vhd
-  - Insper-RISC-V/Memory/src/latency/SoC/latency_counter.vhd
-  - Insper-RISC-V/Memory/src/cache/SoC/flash_chip.vhd
   - Insper-RISC-V/Memory/src/cache/SoC/flash_arbiter.vhd
   - Insper-RISC-V/Memory/src/cache/SoC/mem_region_router.vhd
   - Insper-RISC-V/Peripherals/src/UART/jtag/jtag_uart.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_pkg.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_operation_decoder.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_cell.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio_group.vhd
+  - Insper-RISC-V/Peripherals/src/GPIO/soc/gpio.vhd
   - Insper-RISC-V/Peripherals/src/display/soc/hex_to_seg7.vhd
   - Insper-RISC-V/Peripherals/src/display/soc/seg_display.vhd
   - Insper-RISC-V/Peripherals/src/TIMER/soc/alu_ge_unsigned.vhd
   - Insper-RISC-V/Peripherals/src/CLINT/soc/clint_consts.vhd
-  - Insper-RISC-V/Peripherals/src/CLINT/soc/clint_mtime.vhd
   - Insper-RISC-V/Peripherals/src/CLINT/soc/clint.vhd
   - Insper-RISC-V/Peripherals/src/PLIC/soc/plic_consts.vhd
   - Insper-RISC-V/Peripherals/src/PLIC/soc/plic_gateway.vhd
   - Insper-RISC-V/Peripherals/src/PLIC/soc/plic_arbiter.vhd
   - Insper-RISC-V/Peripherals/src/PLIC/soc/plic.vhd
-  - Insper-RISC-V/Peripherals/src/flash-controller/soc/flash_controller.vhd
   - Insper-RISC-V/src/cyclone-v/de0-cv/de0-cv_sim_top.vhd
   test_module: testbench.test_c_program
   python_path:
   - Insper-RISC-V/src/cyclone-v/de0-cv
   env:
     SIM_TIMEOUT_CYCLES: '12000000'
-    TOHOST_ADDR: '0x43FFFFE8'
-    STDOUT_ADDR: '0x43FFFBE0'
+    TOHOST_ADDR: '0x41FFFFE8'
+    STDOUT_ADDR: '0x41FFFBE0'
     SIM_EXTRA_CLOCKS: i_clk_mem:10
     SIM_SAMPLE_CLOCK: pll_clk_idexmem
     UART_START_ON_ACCESS: '1'
-    UART_SLOT: '4'
+    UART_INDEX: '1'
+    RAM_CHIP_OFFSET: '0x2000000'
   ghdl_std: 08
   parameters:
     BOOT_MEMORY_FILE: '{boot_memory_hex_path}'
-    ROM_FILE: '{hex_path}'
+    ROM_FILE: false
     boot_memory_addr_width: '10'
-    rom_addr_width: '16'
+    rom_addr_width: false
     ram_addr_width: '16'
-    HAS_E: false
-    HAS_M: true
-    HAS_ZMMUL: false
-    HAS_ZICSR: true
-    HAS_ZICNTR: true
-    HAS_ZIHPM: true
-    HAS_ZIMOP: true
-    HAS_ZICOND: true
-    HAS_ZIHINTNTL: true
-    HAS_ZIHINTPAUSE: true
-    HAS_ZIFENCEI: true
-    HAS_ZICCLSM: true
-    HAS_INTERRUPTS: true
-    HAS_SSCOFPMF: true
-    HAS_ACCESS_FAULTS: true
     ROM_EXTERNAL: true
     RAM_EXTERNAL: true
     HAS_ICACHE: true
     HAS_DCACHE: true
     ICACHE_SIZE_BITS: '32768'
     DCACHE_SIZE_BITS: '32768'
+    SDRAM_FILE: '{hex_path}'
+  config_pkg: "-- ============================================================================\n-- Pacote de configura\xE7\xE3o da plataforma (constantes de elabora\xE7\xE3o)\n--\n-- Gerado por `riscv-tools` a partir de platform.yaml.\n-- N\xE3o edite \xE0 m\xE3o: mude o YAML da plataforma e gere de novo.\n--\n-- A unidade tem o nome do pacote padr\xE3o do Common-Components e as mesmas\n-- constantes e tipos, ent\xE3o esta vers\xE3o ocupa o lugar dele na lista de fontes.\n-- ============================================================================\n\nlibrary ieee;\nuse ieee.std_logic_1164.all;\nuse ieee.numeric_std.all;\nuse work.utils_pkg.all;\n\npackage config_pkg is\n\n    -- Configura\xE7\xE3o base do processador\n\n    -- Base de 64 bits (RV64) quando verdadeiro, de 32 bits (RV32) quando falso.\n    constant IS_64     : boolean := false;\n    -- Base E (16 registradores) quando verdadeiro, base I (32) quando falso.\n    constant IS_E : boolean := false;\n    -- Largura do endere\xE7\
+    o f\xEDsico em bits, de 16 a XLEN (o n\xFAcleo n\xE3o tem MMU, ent\xE3o o endere\xE7o efetivo nunca passa de XLEN bits).\n    constant ADDR_BITS : natural := 32;\n\n    -- Constantes auxiliares derivadas da configura\xE7\xE3o base\n\n    -- Largura em bits da palavra de dados, do PC l\xF3gico e dos registradores.\n    constant XLEN     : natural := pick(IS_64, 64, 32);\n    -- Largura em bits do \xEDndice de registrador: 4 na base E e 5 na base I.\n    constant REG_BITS : natural := pick(IS_E, 4, 5);\n    -- N\xFAmero de registradores de uso geral, 2 elevado a REG_BITS.\n    constant NUM_REGS : natural := 2 ** REG_BITS;\n\n    -- Defini\xE7\xF5es de tipos derivados da configura\xE7\xE3o base\n\n    -- Palavra de dados de XLEN bits.\n    subtype word_t is std_logic_vector((XLEN - 1) downto 0);\n\n    -- \xCDndice de registrador de uso geral de REG_BITS bits.\n    subtype reg_t is std_logic_vector((REG_BITS - 1) downto 0);\n\n    -- Endere\xE7o f\xEDsico de ADDR_BITS bits.\n    subtype\
+    \ addr_t is std_logic_vector((ADDR_BITS - 1) downto 0);\n\n    -- Endere\xE7o de mapa em bytes, com um bit a mais para representar o fim exclusivo 2**ADDR_BITS.\n    subtype map_addr_t is unsigned(ADDR_BITS downto 0);\n\n    -- Ajuste do sistema de mem\xF3ria\n\n    -- Existe cache de instru\xE7\xF5es; exige FLASH_ON_BUS.\n    constant HAS_ICACHE   : boolean := true;\n    -- A FLASH \xE9 alcan\xE7ada pelo barramento (verdadeiro) ou pela porta direta do n\xFAcleo (falso).\n    constant FLASH_ON_BUS : boolean := true;\n    -- A RAM \xE9 alcan\xE7ada pelo barramento (verdadeiro) ou pela porta direta do n\xFAcleo (falso).\n    constant RAM_ON_BUS   : boolean := true;\n    -- Existe cache de dados; exige RAM_ON_BUS.\n    constant HAS_DCACHE   : boolean := true;\n\n    -- Extens\xF5es de mem\xF3ria\n\n    -- Acesso desalinhado \xE0 mem\xF3ria principal atendido em hardware (Zicclsm).\n    constant HAS_ZICCLSM  : boolean := true;\n    -- Extens\xE3o Zifencei (fence.i) presente.\n    constant\
+    \ HAS_ZIFENCEI : boolean := true;\n\n    -- Extens\xF5es do conjunto de instru\xE7\xF5es I\n\n    -- Extens\xE3o Zimop (mop.r.n e mop.rr.n) presente.\n    constant HAS_ZIMOP         : boolean := true;\n    -- Extens\xE3o Zicond (czero.eqz e czero.nez) presente.\n    constant HAS_ZICOND        : boolean := true;\n\n    -- Extens\xF5es MISA\n\n    -- Extens\xE3o Zmmul (s\xF3 multiplica\xE7\xE3o) presente.\n    constant HAS_ZMMUL         : boolean := false;\n    -- Extens\xE3o M (multiplica\xE7\xE3o e divis\xE3o) presente; se true, Zmmul \xE9 ignorada.\n    constant HAS_M             : boolean := true;\n\n    -- Extens\xF5es de controle e status\n\n    -- Extens\xE3o Zicsr e tratamento de exce\xE7\xF5es do modo m\xE1quina presentes.\n    constant HAS_ZICSR         : boolean := true;\n    -- Interrup\xE7\xF5es de m\xE1quina presentes (mip e mie); exige HAS_ZICSR.\n    constant HAS_INTERRUPTS    : boolean := true;\n    -- Falhas de acesso (causas 1, 5 e 7) geradas fora do mapa v\xE1lido;\
+    \ exige HAS_ZICSR.\n    constant HAS_ACCESS_FAULTS : boolean := true;\n    -- Extens\xE3o Zicntr (mcycle, minstret, time) presente; exige HAS_ZICSR.\n    constant HAS_ZICNTR        : boolean := true;\n    -- Extens\xE3o Zihpm (contadores de eventos) presente; exige HAS_ZICSR.\n    constant HAS_ZIHPM         : boolean := true;\n    -- Extens\xE3o Sscofpmf (estouro de contador de eventos) presente; exige HAS_ZIHPM e HAS_INTERRUPTS.\n    constant HAS_SSCOFPMF      : boolean := true;\n\n    -- Extens\xF5es Hint\n\n    -- Extens\xE3o Zihintntl (dicas ntl.*) presente.\n    constant HAS_ZIHINTNTL     : boolean := true;\n    -- Extens\xE3o Zihintpause (dica pause) presente.\n    constant HAS_ZIHINTPAUSE   : boolean := true;\n\n    -- Constantes derivadas de depend\xEAncias entre extens\xF5es\n\n    -- Multiplica\xE7\xE3o presente, por M ou por Zmmul.\n    constant HAS_MULTIPLICATION : boolean := HAS_M or HAS_ZMMUL;\n    -- Algum contador de hardware presente, Zicntr ou Zihpm.\n    constant HAS_ANY_COUNTER\
+    \    : boolean := HAS_ZICNTR or HAS_ZIHPM;\n    -- Interrup\xE7\xE3o de estouro de contador (Sscofpmf) ativa, o que exige Zihpm e interrup\xE7\xF5es.\n    constant HAS_SSCOF          : boolean := HAS_SSCOFPMF and HAS_ZIHPM and HAS_INTERRUPTS;\n\n    -- Configura\xE7\xF5es das mem\xF3rias principais (BOOT, $I, FLASH, $D e RAM).\n\n    -- Configura\xE7\xF5es da BOOT_MEMORY (mem\xF3ria de inicializa\xE7\xE3o).\n\n    -- Expoente do tamanho da BOOT_MEMORY, que ocupa os endere\xE7os [0, 2**BOOT_MEMORY_BITS).\n    constant BOOT_MEMORY_BITS  : natural    := 12;\n    -- Base da BOOT_MEMORY em bytes, sempre o endere\xE7o 0.\n    constant BOOT_MEMORY_BASE  : map_addr_t := to_unsigned(0, ADDR_BITS + 1);\n    -- Fim exclusivo da BOOT_MEMORY em bytes, 2**BOOT_MEMORY_BITS.\n    constant BOOT_MEMORY_END   : map_addr_t := shift_left(to_unsigned(1, ADDR_BITS + 1), BOOT_MEMORY_BITS);\n\n    -- Configura\xE7\xF5es da FLASH (mem\xF3ria de instru\xE7\xF5es)\n\n    -- Largura em bits da janela de endere\xE7\
+    os da cache de instru\xE7\xF5es, se cache estiver habilitada (12 = 4 KiB).\n    constant I_CACHE_WINDOW_BITS : natural    := 26;\n    -- Base da FLASH em bytes, logo depois da BOOT_MEMORY.\n    constant FLASH_BASE          : map_addr_t := resize(unsigned'(x\"00001000\"), ADDR_BITS + 1);\n    -- Fim exclusivo da FLASH em bytes.\n    constant FLASH_END           : map_addr_t := resize(unsigned'(x\"02000000\"), ADDR_BITS + 1);\n    -- Janela da FLASH que o roteador de regi\xF5es cobre, em KiB (o tamanho da regi\xE3o).\n    constant FLASH_WINDOW_KIB    : natural    := 32764;\n    -- Byte do chip onde a FLASH come\xE7a (0 sem `offset`).\n    constant FLASH_CHIP_OFFSET   : natural  := 4096;\n    -- Bits baixos do endere\xE7o do SoC que percorrem a FLASH.\n    constant FLASH_CHIP_LOW_BITS : natural  := 25;\n    -- A FLASH usa uma constante nos bits altos, sem somador.\n    constant FLASH_CHIP_ALIGNED  : boolean  := true;\n    -- Constante dos bits altos da FLASH (vale com CHIP_ALIGNED).\n \
+    \   constant FLASH_CHIP_HIGH     : natural  := 0;\n\n    -- Configura\xE7\xF5es da RAM (mem\xF3ria de dados)\n\n    -- Largura em bits da janela de endere\xE7os da cache de dados, se cache estiver habilitada (12 = 4 KiB).\n    constant D_CACHE_WINDOW_BITS : natural    := 26;\n    -- Base da RAM em bytes.\n    constant RAM_BASE            : map_addr_t := resize(unsigned'(x\"40000000\"), ADDR_BITS + 1);\n    -- Fim exclusivo da RAM em bytes.\n    constant RAM_END             : map_addr_t := resize(unsigned'(x\"42000000\"), ADDR_BITS + 1);\n    -- Byte do chip onde a RAM come\xE7a (0 sem `offset`).\n    constant RAM_CHIP_OFFSET   : natural  := 33554432;\n    -- Bits baixos do endere\xE7o do SoC que percorrem a RAM.\n    constant RAM_CHIP_LOW_BITS : natural  := 25;\n    -- A RAM usa uma constante nos bits altos, sem somador.\n    constant RAM_CHIP_ALIGNED  : boolean  := true;\n    -- Constante dos bits altos da RAM (vale com CHIP_ALIGNED).\n    constant RAM_CHIP_HIGH     : natural  := 1;\n\
+    \n    -- Devolve o nome da ISA configurada, como rv32im_zicclsm, na ordem can\xF4nica das extens\xF5es.\n    function isa_string return string;\n\n    -- Confere as depend\xEAncias entre as constantes e falha na elabora\xE7\xE3o quando a configura\xE7\xE3o \xE9\n    -- inv\xE1lida; devolve sempre verdadeiro.\n\n    function check_isa return boolean;\n\nend package config_pkg;\n\npackage body config_pkg is\n\n    function isa_string return string is\n\n        -- Texto acumulado, com folga para todas as extens\xF5es.\n        variable text  : string(1 to 128) := (others => ' ');\n        -- N\xFAmero de caracteres j\xE1 escritos em text.\n        variable count : natural          := 0;\n\n        -- Acrescenta o trecho s ao final do texto.\n\n        procedure add (\n            s : in string\n        ) is\n        begin\n\n            for i in s'range loop\n\n                count       := count + 1;\n                text(count) := s(i);\n\n            end loop;\n\n        end procedure\
+    \ add;\n\n        -- Acrescenta o trecho s quando a condi\xE7\xE3o cond \xE9 verdadeira.\n\n        procedure add_if (\n            cond : in boolean;\n            s    : in string\n        ) is\n        begin\n\n            if cond then\n                add(s);\n            end if;\n\n        end procedure add_if;\n\n    begin\n\n        add_if(IS_64, \"rv64\");\n        add_if(not IS_64, \"rv32\");\n        add_if(IS_E, \"e\");\n        add_if(not IS_E, \"i\");\n        add_if(HAS_M, \"m\");\n        add_if(HAS_ZICCLSM, \"_zicclsm\");\n        add_if(HAS_ZICNTR, \"_zicntr\");\n        add_if(HAS_ZICOND, \"_zicond\");\n        add_if(HAS_ZICSR, \"_zicsr\");\n        add_if(HAS_ZIFENCEI, \"_zifencei\");\n        add_if(HAS_ZIHINTNTL, \"_zihintntl\");\n        add_if(HAS_ZIHINTPAUSE, \"_zihintpause\");\n        add_if(HAS_ZIHPM, \"_zihpm\");\n        add_if(HAS_ZIMOP, \"_zimop\");\n        add_if(HAS_ZMMUL and not HAS_M, \"_zmmul\");\n        add_if(HAS_SSCOFPMF, \"_sscofpmf\");\n   \
+    \     return text(1 to count);\n\n    end function isa_string;\n\n    function check_isa return boolean is\n\n        -- Um, na largura de map_addr_t, base das pot\xEAncias de dois do mapa.\n        constant ONE       : map_addr_t := to_unsigned(1, ADDR_BITS + 1);\n        -- Fim do espa\xE7o de endere\xE7os f\xEDsico em bytes, 2**ADDR_BITS.\n        constant SPACE_END : map_addr_t := shift_left(ONE, ADDR_BITS);\n\n    begin\n\n        assert not (HAS_ZICNTR or HAS_ZIHPM) or HAS_ZICSR\n            report \"Zicntr e Zihpm exigem Zicsr\"\n            severity failure;\n        assert not HAS_INTERRUPTS or HAS_ZICSR\n            report \"Interrupcoes exigem Zicsr\"\n            severity failure;\n        assert not HAS_SSCOFPMF or (HAS_ZIHPM and HAS_INTERRUPTS)\n            report \"Sscofpmf exige Zihpm e interrupcoes\"\n            severity failure;\n        assert not HAS_ACCESS_FAULTS or HAS_ZICSR\n            report \"Falhas de acesso exigem Zicsr\"\n            severity failure;\n\
+    \        assert ADDR_BITS >= 16 and ADDR_BITS <= 64\n            report \"ADDR_BITS fora de 16..64\"\n            severity failure;\n        assert ADDR_BITS <= XLEN\n            report \"ADDR_BITS maior que XLEN\"\n            severity failure;\n        assert BOOT_MEMORY_BITS < ADDR_BITS\n            report \"BOOT_MEMORY_BITS deve ser menor que ADDR_BITS\"\n            severity failure;\n        assert BOOT_MEMORY_BASE = 0\n            report \"A BOOT_MEMORY deve comecar no endereco 0\"\n            severity failure;\n        assert BOOT_MEMORY_END <= FLASH_BASE\n            report \"A memoria de instru\xE7\xF5es deve comecar depois da BOOT_MEMORY\"\n            severity failure;\n        assert FLASH_BASE < FLASH_END\n            report \"A FLASH deve ter tamanho positivo\"\n            severity failure;\n        assert FLASH_END <= RAM_BASE\n            report \"A memoria de instru\xE7\xF5es deve terminar antes da RAM\"\n            severity failure;\n        assert RAM_BASE < RAM_END\n\
+    \            report \"A RAM deve ter tamanho positivo\"\n            severity failure;\n        assert RAM_END <= SPACE_END\n            report \"A RAM deve caber no espa\xE7o de endere\xE7os fisico\"\n            severity failure;\n        assert not HAS_ICACHE or FLASH_ON_BUS\n            report \"Cache de instru\xE7\xF5es exige FLASH_ON_BUS\"\n            severity failure;\n        assert not HAS_DCACHE or RAM_ON_BUS\n            report \"Cache de dados exige RAM_ON_BUS\"\n            severity failure;\n        return true;\n\n    end function check_isa;\n\nend package body config_pkg;\n"
 emulator:
   sources:
   - Insper-RISC-V/src/cyclone-v/de0-cv/runtime/spike_exit.S
@@ -192,11 +198,11 @@ memory:
   boot_memory_base: 0
   boot_memory_words: 1024
   rom_base: 4096
-  rom_words: 64512
+  rom_words: 8387584
   ram_base: 1073741824
-  ram_words: 16777216
-  tohost_addr: 1140850664
-  fromhost_addr: 1140850672
+  ram_words: 8388608
+  tohost_addr: 1107296232
+  fromhost_addr: 1107296240
 flash_image:
   bank: A
   version: 1
@@ -204,7 +210,7 @@ flash:
   banks:
   - name: A
     base: 4096
-    size: 126976
+    size: 16773120
   - name: B
-    base: 131072
-    size: 131072
+    base: 16777216
+    size: 16777216

@@ -2,10 +2,10 @@
 # with the controller and restarts through the boot memory. The simulation top has the FLASH controller, the two-port storage
 # and the command chip behind it (HAS_FLASH_CONTROLLER), with a chip that erases a sector in 100 clocks of waiting and
 # programs a page in 20: the fast chip. config.sdram-flash-update-slow.yaml has the slow one.
-extends: config.platform-de0-cv.yaml
+extends: config.platform-de0-cv-emulated.yaml
 
 paths:
-  include_dir: tools/riscv_build/include-sdram
+  include_dir: tools/riscv_build/include-sdram-emulated
   build_dir: build-sdram-flash-update
   c_dir: c-sdram-update
   asm_dir: asm-sdram-update

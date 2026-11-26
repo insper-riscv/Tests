@@ -171,6 +171,11 @@ class Bus:
         if addr == TOHOST:
             self.tohost = self.ram[addr]
 
+    def external(self, dut):
+        """Responde com erro a todo acesso da porta externa, que no teste não tem escravo."""
+        dut.i_ext_ready.value = 1
+        dut.i_ext_error.value = int(int(dut.o_ext_rden.value) or int(dut.o_ext_wren.value))
+
     def lines(self, dut):
         """Escreve as linhas de interrupção do CLINT nas portas."""
         dut.i_irq_timer.value = self.clint.timer
@@ -199,6 +204,7 @@ async def run(dut, image):
         bus.capture(dut)
         bus.clint.tick()
         bus.lines(dut)
+        bus.external(dut)
         if bus.tohost is not None:
             return bus.tohost
     return None

@@ -41,3 +41,9 @@ build-nano-sdram/
 build-lite-regression/
 build-lite-sdram/
 build-lite-irq/
+build-boot/
+build-boot-de0-cv/
+build-boot-seq-de0-cv/
+build-boot-de2-115/
+build-boot-seq-de2-115/
+tools/riscv_build/include-de2-115/rv32_test.h

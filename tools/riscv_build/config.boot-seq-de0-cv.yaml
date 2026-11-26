@@ -1,0 +1,10 @@
+# A sequência da espera entre testes (c-boot-seq/) na plataforma de0-cv: programas que passam, que falham e
+# que travam, rodados um por vez pela etapa boot-seq de tools/board/board_run.py. Um programa daqui falha ou
+# trava de propósito, então nenhuma suíte que roda tudo (sim, regressão) o inclui.
+extends: config.platform-de0-cv.yaml
+
+paths:
+  include_dir: tools/riscv_build/include-sdram
+  build_dir: build-boot-seq-de0-cv
+  c_dir: c-boot-seq
+  asm_dir: asm-boot

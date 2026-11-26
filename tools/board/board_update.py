@@ -253,6 +253,29 @@ def run_cases(names: list[str], wait_s: float, finish_s: float) -> dict[str, str
     return results
 
 
+def host_label(value: str) -> str:
+    """Valida o rótulo do host, que vira parte do nome de um arquivo em ``/tmp``.
+
+    Parameters
+    ----------
+    value : str
+        O texto recebido em ``--host``.
+
+    Returns
+    -------
+    str
+        O próprio texto, se for aceito.
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        Se o texto for vazio ou tiver ``/`` ou espaço em branco.
+    """
+    if not value or "/" in value or any(c.isspace() for c in value):
+        raise argparse.ArgumentTypeError(f"rótulo de host inválido: {value!r} (sem '/' nem espaço em branco)")
+    return value
+
+
 def main() -> None:
     """Lê a linha de comando, toma a trava da placa e roda os programas."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n", maxsplit=1)[0])
@@ -260,9 +283,12 @@ def main() -> None:
         "--host",
         "--board",
         dest="host",
-        choices=["laptop", "ws"],
+        type=host_label,
         required=True,
-        help="rótulo do host da placa, no nome da trava e do arquivo de resultado",
+        help=(
+            "rótulo do host da placa, o hostname curto da máquina (hostname -s) ou laptop, "
+            "no nome da trava e do arquivo de resultado"
+        ),
     )
     parser.add_argument("--cases", nargs="+", default=list(CASES))
     parser.add_argument("--wait", type=float, default=4.0)
